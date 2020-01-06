@@ -1,0 +1,6 @@
+data/*
+build/*
+test/__pycache__/*
+uditas.egg-info/*
+*.pyc
+dist/*
