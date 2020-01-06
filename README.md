@@ -1,6 +1,14 @@
 UDiTaS v1.0
 ===========
 
+Enviornmental Variable Setting:
+
+export BOWTIE2_INDEXES=/media/edanner/NewUbuntuSpace/Workspace/Ref_Genomes
+export GENOMES_2BIT=/media/edanner/NewUbuntuSpace/Workspace/Ref_Genomes
+
+check:  > echo $BOWTIE2_INDEXES
+	> ECHO $GENOMES_2BIT
+
 Overview
 --------
 

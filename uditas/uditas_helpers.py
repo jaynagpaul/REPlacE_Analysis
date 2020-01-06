@@ -295,6 +295,7 @@ def demultiplex(dir_sample):
     index_i2_list = list(experiments['index_I2'])
     barcode_i2_list = list(experiments['barcode_I2'])
     i2_dict = dict(zip(barcode_i2_list, index_i2_list))
+#    umi_len_list = list(experiments['UMI_Len'])
 
     index_i1_set = set(index_i1_list)
 
@@ -304,6 +305,8 @@ def demultiplex(dir_sample):
         good_barcode_pairs[bc] = list(experiments.loc[bc == experiments['index_I1']]['index_I2'])
 
     barcode_i2_length = len(barcode_i2_list[0])
+    #addition made for sequencing when index2read = umi->index2
+#       umi_length = len(umi_len_list[0])
 
     files_out = list()
 
@@ -388,14 +391,17 @@ def demultiplex(dir_sample):
             qual_i1, qual_i2_plus_umi = qual_i1.rstrip(), qual_i2_plus_umi.rstrip()
 
             #       We mask with N any bases with scores below or equal to , (11, default in mask)
+            # I sequenced using miniseq with the original Uditas so my index2 read was UMI->Index. So I have to reverse the original script which was Index->Umi
             seq_i1 = mask(seq_i1, qual_i1)
 
             seq_i2 = mask(seq_i2_plus_umi[:barcode_i2_length], qual_i2_plus_umi[:barcode_i2_length])
-
+#            seq_i2 = mask(seq_i2_plus_umi[umi_length:], qual_i2_plus_umi[umi_length:])
             umi_qual = qual_i2_plus_umi[barcode_i2_length:]
-
             umi = mask(seq_i2_plus_umi[barcode_i2_length:], umi_qual)
-
+#            umi_qual = qual_i2_plus_umi[:umi_length]
+#            umi = mask(seq_i2_plus_umi[:umi_length], umi_qual)
+            
+            
             # change to 1 for reads with perfect indices or match after correction
             is_good_index = 0
 
@@ -635,6 +641,7 @@ def get_reaction_type(amplicon_info):
     has_guide1 = type(amplicon_info['chr_guide_1']) is str or type(amplicon_info['chr_guide_1']) is unicode
     has_guide2 = type(amplicon_info['chr_guide_2']) is str or type(amplicon_info['chr_guide_2']) is unicode
     has_guide3 = type(amplicon_info['chr_guide_3']) is str or type(amplicon_info['chr_guide_3']) is unicode
+    has_replace_donor = type(amplicon_info['Replace_Donor']) is str or type(amplicon_info['Replace_Donor']) is unicode
 
     if not has_guide1 and not has_guide2 and not has_guide3:
         reaction_type = 'control'
@@ -642,6 +649,9 @@ def get_reaction_type(amplicon_info):
         reaction_type = 'single_cut'
     elif has_guide1 and has_guide2 and amplicon_info['chr_guide_1'] == amplicon_info['chr_guide_2'] and not has_guide3:
         reaction_type = 'double_cut_same_chromosome'
+    #this is the modification of the origianl. It requires
+    elif has_guide1 and has_guide2 and amplicon_info['chr_guide_1'] == amplicon_info['chr_guide_2'] and has_replace_donor:
+        reaction_type = 'Replace'        
     elif has_guide1 and has_guide2 and amplicon_info['chr_guide_1'] != amplicon_info['chr_guide_2'] and not has_guide3:
         reaction_type = 'double_cut_different_chromosomes'
     elif has_guide1 and has_guide2 and has_guide3:
@@ -757,6 +767,56 @@ def create_amplicon(dir_sample, amplicon_info, file_genome_2bit, amplicon_window
         amplicon_list.append(['large_inversion', seq_upstream + reverse_complement(seq_cut1_cut2) + seq_downstream])
         amplicon_list.append(['1a_1a', seq_upstream + reverse_complement(seq_upstream)])
         amplicon_list.append(['2b_2b', reverse_complement(seq_downstream) + seq_downstream])
+     
+        
+    elif reaction_type == 'Replace':
+        #this is for the replacement of sequence setup. Needs a replacedonere
+        if amplicon_info['strand_guide_1'] == '+':
+            # sp or sa for the moment only
+            cut1 = amplicon_info['end_guide_1'] - 3
+        elif amplicon_info['strand_guide_1'] == '-':
+            cut1 = amplicon_info['start_guide_1'] + 3
+        else:
+            raise StrandError('strand_guide_1 can only have as values + or -')
+
+        if amplicon_info['strand_guide_2'] == '+':
+            cut2 = amplicon_info['end_guide_2'] - 3
+        elif amplicon_info['strand_guide_2'] == '-':
+            cut2 = amplicon_info['start_guide_2'] + 3
+        else:
+            raise StrandError('strand_guide_2 can only have as values + or -')
+
+        # We switch the coordinates of cut1 and cut2 if the guides are provided so that cut2 < cut1
+        # cut1 it will always be smaller than cut2 and in the results cut1 will be the cut site with
+        # smaller genomic coordinate
+        # cut1 and cut2 also flipped in get_cut_in_reference_amplicon_df
+
+        if cut2 < cut1:
+            (cut1, cut2) = (cut2, cut1)
+
+        start_coordinate = int(cut1 - amplicon_window_around_cut)
+        if start_coordinate < 0:
+            start_coordinate = 0
+        end_coordinate = int(cut2 + amplicon_window_around_cut)
+        if end_coordinate > len(genome[amplicon_info['chr_guide_1']]):
+            end_coordinate = len(genome[amplicon_info['chr_guide_1']])
+
+        seq_upstream = genome[amplicon_info['chr_guide_1']][start_coordinate:int(cut1)]
+        seq_cut1_cut2 = genome[amplicon_info['chr_guide_1']][int(cut1):int(cut2)]
+        seq_downstream = genome[amplicon_info['chr_guide_1']][int(cut2):end_coordinate]
+
+        amplicon_list.append(['wt', seq_upstream + seq_cut1_cut2 + seq_downstream])
+        amplicon_list.append(['large_deletion', seq_upstream + seq_downstream])
+        amplicon_list.append(['large_inversion', seq_upstream + reverse_complement(seq_cut1_cut2) + seq_downstream])
+        amplicon_list.append(['replace_fwd', seq_upstream + amplicon_info['Replace_Donor'] + seq_downstream])
+        amplicon_list.append(['replace_rev', seq_upstream + reverse_complement(amplicon_info['Replace_Donor']) + seq_downstream])
+        amplicon_list.append(['doner_tail_tail', amplicon_info['Replace_Donor'] + reverse_complement(amplicon_info['Replace_Donor'])])
+        amplicon_list.append(['doner_head_tail', amplicon_info['Replace_Donor'] + amplicon_info['Replace_Donor']])
+        amplicon_list.append(['doner_head_head', reverse_complement(amplicon_info['Replace_Donor']) + amplicon_info['Replace_Donor']])      
+        amplicon_list.append(['1a_1a', seq_upstream + reverse_complement(seq_upstream)])
+        amplicon_list.append(['2b_2b', reverse_complement(seq_downstream) + seq_downstream])
+        
+        
     elif reaction_type == 'double_cut_different_chromosomes':
         # Case two guides on different chromosomes
         if amplicon_info['strand_guide_1'] == '+':
@@ -891,18 +951,21 @@ def create_amplicon(dir_sample, amplicon_info, file_genome_2bit, amplicon_window
 
 ############################
 #
-# Remove adapters in fastq files
-# Input: directory to be analyzed
+# Remove adapters in fastq files. The idea of this is that if the sequence runs beyond the length of the acutal genomice sequence into the sequencing
+#       primers on the other other side, it will then be trimmed down so you dont try and align adapter sequences. 
+# Input: directory to be analyzed (fastq files)
 #        dir_sample, name of the directory for the whole run, typically with the name of a miseq run
-#        amplicon_info, slice of sample_info.csv for the sample being processed
+#        amplicon_info, slice of sample_info.csv for the sample being processed to get the indexes required for saving names
 #        process_AMP_seq_run, set to 1 to trim in read2 the same adapter as in GUIDE-Seq
+     # it is very important! to pay attention to if youre using the nextera or trueseq adapters as the sequence to trim will be different on the i7 side.
 #
 # ##########################
 def trim_fastq(dir_sample, amplicon_info, process_AMP_seq_run):
 
     # UDiTaS adapters
-    Nv2F = 'TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG'
-    SBS12 = 'GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCT'
+    Nv2F = 'TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG' #for the i5 side
+    SBS12nextera = 'GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAG'  #this is for the i7 side for nextera
+  #  SBS12 = 'GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCT'  #this is for i7 side for trueseq primers **need this one for the pytest**
 
     if process_AMP_seq_run == 1:
         i2_adapter = 'ACACTCTTTCCCTACACGACGCTCTTCCGATCT'
@@ -927,7 +990,7 @@ def trim_fastq(dir_sample, amplicon_info, process_AMP_seq_run):
     cutadapt_command = ['cutadapt',
                         '-m', '10',
                         '-e', '0.33',
-                        '-a', reverse_complement(SBS12),
+                        '-a', reverse_complement(SBS12nextera),
                         '-A', reverse_complement(i2_adapter),
                         '-o', file_cutadapt_R1, '-p', file_cutadapt_R2,
                         file_R1, file_R2]

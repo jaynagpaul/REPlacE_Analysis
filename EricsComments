@@ -1,0 +1,13 @@
+1.Be sure to change the trimming adapter setting in uditas_helpers.py depending on if your using nextera or trueseq adapters. It's in the function's definition.
+2. I changed the test files from the original to include the Replace columns so that the tests can be used.
+3. The original pytests 2a/2b/2c require you to switch the UMI/index order for indexread2 that was used in the original udidtas paper.
+
+
+Todo:
+-chagne teh summerize table to add in the new aspects of Replace.
+-make a minimal fastqfile
+- make the table for my seq files
+-check about ampseq vs LAM-HGTGS. LAM-HGTGS would be better for 2-4kb sequencing
+- add the LAM sequence and chagne it for AMPseq
+
+
