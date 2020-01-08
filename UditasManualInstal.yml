@@ -1,4 +1,4 @@
-name: uditas_handmade
+name: uditas_polb
 channels:
   - conda-forge
   - bioconda
