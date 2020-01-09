@@ -7,7 +7,7 @@
 
 from __future__ import print_function
 
-from _version import __version__
+from _version import __version__ #removed this in my jupyternotebook
 
 import matplotlib
 
@@ -51,12 +51,11 @@ import pysam
 __author__ = "Eugenio Marco"
 __credits__ = ["David Kelly"]
 __status__ = "Development"
-
+__changes__= "Eric Danner"
 
 class Error(Exception):
     """Base class for exceptions in this module."""
     pass
-
 
 class StrandError(Error):
     """Exception raised for errors in the strand information.
@@ -283,12 +282,17 @@ def demultiplex(dir_sample):
     sample_info_filename = os.path.join(dir_sample, 'sample_info.csv')
 
     experiments = pd.read_csv(sample_info_filename)
-
+    #this is what uditas shows but my files are named different
+    '''
     r1_fastq = os.path.join(dir_sample, 'Undetermined_S0_L001_R1_001.fastq.gz')
     r2_fastq = os.path.join(dir_sample, 'Undetermined_S0_L001_R2_001.fastq.gz')
     i1_fastq = os.path.join(dir_sample, 'Undetermined_S0_L001_I1_001.fastq.gz')
     i2_fastq = os.path.join(dir_sample, 'Undetermined_S0_L001_I2_001.fastq.gz')
-
+    '''
+    r1_fastq = os.path.join(dir_sample, 'Undetermined_S0_R1_001.fastq.gz')
+    r2_fastq = os.path.join(dir_sample, 'Undetermined_S0_R2_001.fastq.gz')
+    i1_fastq = os.path.join(dir_sample, 'Undetermined_S0_I1_001.fastq.gz')
+    i2_fastq = os.path.join(dir_sample, 'Undetermined_S0_I2_001.fastq.gz')
     index_i1_list = list(experiments['index_I1'])
     barcode_i1_list = list(experiments['barcode_I1'])
     i1_dict = dict(zip(barcode_i1_list, index_i1_list))
@@ -335,7 +339,7 @@ def demultiplex(dir_sample):
 
     if not os.path.exists(os.path.join(dir_sample, 'reports')):
         os.mkdir(os.path.join(dir_sample, 'reports'))
-
+    #never used 'not in exp list' 
     file_out_not_in_exp_list_r1 = os.path.join(dir_sample, 'mismatched', 'not_in_exp_list_R1.fastq')
     file_out_not_in_exp_list_r2 = os.path.join(dir_sample, 'mismatched', 'not_in_exp_list_R2.fastq')
     file_out_not_in_exp_list_i1 = os.path.join(dir_sample, 'mismatched', 'not_in_exp_list_I1.fastq')
@@ -623,48 +627,48 @@ def write_amplicon(dir_sample, amplicon_info, amplicon_list):
     index_out_fh.close()
 
 
-############################
-#
-#  Function to determine the kind of reaction from the number of cuts and their locations
-#
-# The function classify the cases:
-#   - No cut (just UDiTaS primer, used for controls)
-#   - Single cut
-#   - Dual cut on same chromosome, generates amplicons with large deletions, etc
-#   - Dual cut on different chromosomes. Generates 10 amplicons including translocations
-#   - Triple cuts on different chromosomes. Generates 21 amplicons including translocations. NOTE that if two of the
-#     cuts are in the same chromosome and close together (less than amplicon_window_around_cut) the results may
-#     be incorrect since some reads may be mapped to multiple amplicons, but only counted around the cut in one amplicon
-#
-############################
-def get_reaction_type(amplicon_info):
-    has_guide1 = type(amplicon_info['chr_guide_1']) is str or type(amplicon_info['chr_guide_1']) is unicode
-    has_guide2 = type(amplicon_info['chr_guide_2']) is str or type(amplicon_info['chr_guide_2']) is unicode
-    has_guide3 = type(amplicon_info['chr_guide_3']) is str or type(amplicon_info['chr_guide_3']) is unicode
-    has_replace_donor = type(amplicon_info['Replace_Donor']) is str or type(amplicon_info['Replace_Donor']) is unicode
-
-    if not has_guide1 and not has_guide2 and not has_guide3:
-        reaction_type = 'control'
-    elif has_guide1 and not has_guide2 and not has_guide3:
-        reaction_type = 'single_cut'
-    elif has_guide1 and has_guide2 and amplicon_info['chr_guide_1'] == amplicon_info['chr_guide_2'] and not has_guide3:
-        reaction_type = 'double_cut_same_chromosome'
-    #this is the modification of the origianl. It requires
-    elif has_guide1 and has_guide2 and amplicon_info['chr_guide_1'] == amplicon_info['chr_guide_2'] and has_replace_donor:
-        reaction_type = 'Replace'        
-    elif has_guide1 and has_guide2 and amplicon_info['chr_guide_1'] != amplicon_info['chr_guide_2'] and not has_guide3:
-        reaction_type = 'double_cut_different_chromosomes'
-    elif has_guide1 and has_guide2 and has_guide3:
-        if (amplicon_info['chr_guide_1'] == amplicon_info['chr_guide_2'] or
-                amplicon_info['chr_guide_1'] == amplicon_info['chr_guide_3'] or
-                amplicon_info['chr_guide_2'] == amplicon_info['chr_guide_3']):
-            raise ReactionTypeError('The reaction with three cuts with at least two in the same chromosome is' +
-                                    ' not yet supported by current version of UDiTaS')
-        reaction_type = 'triple_cut_different_chromosomes'
-    else:
-        raise ReactionTypeError('Reaction type not yet supported by current version of UDiTaS')
-
-    return reaction_type
+    ############################
+    #
+    #  Function to determine the kind of reaction from the number of cuts and their locations
+    #
+    # The function classify the cases:
+    #   - No cut (just UDiTaS primer, used for controls)
+    #   - Single cut
+    #   - Dual cut on same chromosome, generates amplicons with large deletions, etc
+    #   - Dual cut on different chromosomes. Generates 10 amplicons including translocations
+    #   - Triple cuts on different chromosomes. Generates 21 amplicons including translocations. NOTE that if two of the
+    #     cuts are in the same chromosome and close together (less than amplicon_window_around_cut) the results may
+    #     be incorrect since some reads may be mapped to multiple amplicons, but only counted around the cut in one amplicon
+    #
+    ############################
+    def get_reaction_type(amplicon_info):
+        has_guide1 = type(amplicon_info['chr_guide_1']) is str or type(amplicon_info['chr_guide_1']) is unicode
+        has_guide2 = type(amplicon_info['chr_guide_2']) is str or type(amplicon_info['chr_guide_2']) is unicode
+        has_guide3 = type(amplicon_info['chr_guide_3']) is str or type(amplicon_info['chr_guide_3']) is unicode
+        has_replace_donor = type(amplicon_info['Replace_Donor']) is str or type(amplicon_info['Replace_Donor']) is unicode
+    
+        if not has_guide1 and not has_guide2 and not has_guide3:
+            reaction_type = 'control'
+        elif has_guide1 and not has_guide2 and not has_guide3:
+            reaction_type = 'single_cut'
+        elif has_guide1 and has_guide2 and amplicon_info['chr_guide_1'] == amplicon_info['chr_guide_2'] and not has_guide3:
+            reaction_type = 'double_cut_same_chromosome'
+        #this is the modification of the origianl. It requires
+        elif has_guide1 and has_guide2 and amplicon_info['chr_guide_1'] == amplicon_info['chr_guide_2'] and has_replace_donor:
+            reaction_type = 'Replace'        
+        elif has_guide1 and has_guide2 and amplicon_info['chr_guide_1'] != amplicon_info['chr_guide_2'] and not has_guide3:
+            reaction_type = 'double_cut_different_chromosomes'
+        elif has_guide1 and has_guide2 and has_guide3:
+            if (amplicon_info['chr_guide_1'] == amplicon_info['chr_guide_2'] or
+                    amplicon_info['chr_guide_1'] == amplicon_info['chr_guide_3'] or
+                    amplicon_info['chr_guide_2'] == amplicon_info['chr_guide_3']):
+                raise ReactionTypeError('The reaction with three cuts with at least two in the same chromosome is' +
+                                        ' not yet supported by current version of UDiTaS')
+            reaction_type = 'triple_cut_different_chromosomes'
+        else:
+            raise ReactionTypeError('Reaction type not yet supported by current version of UDiTaS')
+    
+        return reaction_type
 
 
 ############################
@@ -963,8 +967,8 @@ def create_amplicon(dir_sample, amplicon_info, file_genome_2bit, amplicon_window
 def trim_fastq(dir_sample, amplicon_info, process_AMP_seq_run):
 
     # UDiTaS adapters
-    Nv2F = 'TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG' #for the i5 side
-    SBS12nextera = 'GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAG'  #this is for the i7 side for nextera
+    Nv2F = 'TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG' #for the i5 side and needs to be reversed compliment end of read2
+    SBS12nextera = 'GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAG'  #this is for the i7 side for nextera end of read 1
   #  SBS12 = 'GTGACTGGAGTTCAGACGTGTGCTCTTCCGATCT'  #this is for i7 side for trueseq primers **need this one for the pytest**
 
     if process_AMP_seq_run == 1:
@@ -1005,7 +1009,7 @@ def trim_fastq(dir_sample, amplicon_info, process_AMP_seq_run):
 # Aligns reads to the plasmid sequence using bowtie2 and local alignment.
 #
 # Input: directory to be analyzed
-#        amplicon_info, slice of sample_info.csv for the sample being processed
+#        amplicon_info, slice of sample_info.csv for the sacreate_filenamemple being processed
 #
 # ##########################
 def align_plasmid_local(dir_sample, amplicon_info, ncpu=4):
@@ -1118,6 +1122,7 @@ def extract_unmapped_reads_plasmid(dir_sample, amplicon_info):
 
 #################################################################################
 # Function to analyze reads aligned to the plasmid
+        #this check for mispriming but only from bam files
 #################################################################################
 def analyze_alignments_plasmid(dir_sample, amplicon_info, min_MAPQ, file_genome_2bit, do_plasmid):
     N7 = amplicon_info['index_I1']
@@ -1209,6 +1214,7 @@ def analyze_alignments_plasmid(dir_sample, amplicon_info, min_MAPQ, file_genome_
 #
 # Aligns reads to the whole genome using bowtie2 and local alignment. This is needed to find translocations using
 #   split reads and a program like socrates
+#   --local aligment means that the sequence can be soft clipped at ends and is used in translocation programs that then align the clipped ends.
 #
 # Input: directory to be analyzed
 #        amplicon_info, slice of sample_info.csv for the sample being processed
@@ -1702,7 +1708,7 @@ def analyze_alignments(dir_sample, amplicon_info, window_size, amplicon_window_a
     # We get the reference amplicon list
     with open(filename_amplicons_fa, "rU") as handle:
         records = list(SeqIO.parse(handle, "fasta"))
-
+    
     for record in records:
         cut_df = get_cut_in_reference_amplicon_df(amplicon_info, reaction_type, record, strand, window_size,
                                                   amplicon_window_around_cut)
@@ -1742,6 +1748,7 @@ def analyze_alignments(dir_sample, amplicon_info, window_size, amplicon_window_a
 
 ################################################################################
 # Function to calculate the number of reads and collapsed reads aligned to the reference amplicons
+# litterally just gives 2 numbers. Number of amplicons that were aligned and the number after collapse. Doesn't break it down by alignment to any particular amplicon
 ################################################################################
 def analyze_alignments_all_amplicons(dir_sample, amplicon_info, min_MAPQ, min_AS):
     N7 = amplicon_info['index_I1']
@@ -1784,6 +1791,7 @@ def analyze_alignments_all_amplicons(dir_sample, amplicon_info, min_MAPQ, min_AS
                                },
                               columns=['all_amplicons_total_reads',
                                        'all_amplicons_total_reads_collapsed'])
+    
 
     results_df.to_excel(results_file)
 
@@ -1904,6 +1912,7 @@ def align_genome_global(dir_sample, amplicon_info, assembly, ncpu=4):
 
 ################################################################################
 # Function to analyze global alignments to the genome
+# this genome analysis really needs to be done for the excel stuff I think
 ################################################################################
 def analyze_alignments_genome_global(dir_sample, amplicon_info, min_MAPQ, min_AS,  file_genome_2bit):
     N7 = amplicon_info['index_I1']
@@ -1986,7 +1995,8 @@ def analyze_alignments_genome_global(dir_sample, amplicon_info, min_MAPQ, min_AS
 
 
 ################################################################################
-#  Simple call to samtools to count mapped & primary reads (thus 0x104)
+#  Simple call to samtools to count mapped & psamtools_count_primary_mappedrimary reads (thus 0x104)
+# I think this is never used
 ################################################################################
 def samtools_count_primary_mapped(bam_file):
     samtools_out = subprocess.check_output(['samtools', 'view', '-c', '-F', '0x104', bam_file])
@@ -2039,6 +2049,7 @@ def melt_results(results_summary_with_experiments):
 
 ################################################################################
 #  Function to summarize counts into the genome
+# never used but shows nwo much mispriming there is
 ################################################################################
 def summarize_results_genome(read_count, all_results_genome_global_df, results_summary):
 
@@ -2067,6 +2078,7 @@ def summarize_results_genome(read_count, all_results_genome_global_df, results_s
 
 #######################################################################################
 # We pivot the table using melt for easier visualization with other tools like Tableau
+#never used
 #######################################################################################
 def melt_results_genome(results_summary_genome):
 
@@ -2094,6 +2106,7 @@ def wc_unix(filename):
 
 ################################################################################
 # Function to count reads
+#used in uditas.py to count total input reads
 ################################################################################
 def count_reads(dir_sample, amplicon_info):
     N7 = amplicon_info['index_I1']
@@ -2166,6 +2179,7 @@ def melt_big_results(big_results):
 
 ################################################################################
 # Final summary
+# this is the summary of all of the different primers together in one giant excel
 ################################################################################
 def summarize_big_results(big_results_in):
 

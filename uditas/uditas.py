@@ -120,22 +120,27 @@ def main():
                                                                       file_genome_2bit, do_plasmid)
         result_plasmid_df.index = [i]
         
-        # Align locally genomewide
+        # Align locally genomewide. This is the soft clipping function and if there was a pre-processing to remove misprimingstep could help understand translocations
+        # however there is so much mispriming that this doesnt make sense. 
         if skip_genome_local_alignment == 0:
             uditas_helpers.align_genome_local(dir_sample, amplicon_info, assembly, check_plasmid_insertions, ncpu)
-        # Map globally to amplicons built out of the expected cuts
+        # Map globally to amplicons built out of the expected cuts.
+        #this is the main alignment function of this program. It creates expected amplicons and then aligns to the expected amplicons.
         if skip_amplicon_global_alignment == 0:
             uditas_helpers.create_amplicon(dir_sample, amplicon_info, file_genome_2bit,
                                            default_amplicon_window_around_cut)
             uditas_helpers.align_amplicon(dir_sample, amplicon_info, check_plasmid_insertions, ncpu)
             # Now we extract the rest of unmapped reads
             uditas_helpers.extract_unmapped_reads_amplicons(dir_sample, amplicon_info)
+        
         # Get counts AT THE CUT JUNCTIONS in all amplicons
+        #this is the main analysis function taht tells you indels and number of reads. It discards alignments that dont cover the junction interface
         result_amplicon_df = uditas_helpers.analyze_alignments(dir_sample, amplicon_info, window_size,
                                                                default_amplicon_window_around_cut, min_MAPQ, min_AS)
         result_amplicon_df.index = [i]
 
         # We get counts of reads aligned to all amplicons, not just at the junctions
+        # this just tells us how many reads aligned to any amplicon. And how many after umi collapse.
         result_reads_in_all_amplicons_df = uditas_helpers.analyze_alignments_all_amplicons(dir_sample, amplicon_info,
                                                                                            min_MAPQ, min_AS)
         result_reads_in_all_amplicons_df.index = [i]
@@ -161,6 +166,8 @@ def main():
         else:
             genomic_background = assembly
 
+        #this is the global (end-to-end) alignment of the amplicons to the genome. However it mostly finds mispriming events so would be good
+        #if it first removed mispriming.
         if skip_genome_global_alignment == 0:
             uditas_helpers.align_genome_global(dir_sample, amplicon_info, genomic_background, ncpu)
         results_genome_global_df = uditas_helpers.analyze_alignments_genome_global(dir_sample, amplicon_info, min_MAPQ,
@@ -185,7 +192,8 @@ def main():
             all_samples_summary_alignments = pd.concat([all_samples_summary_alignments, summary_all_alignments], axis=0)
         except NameError:  # Initialize
             all_samples_summary_alignments = summary_all_alignments.copy()
-
+    
+    #this last part is making the summary excel sheets of all the results.
     if processing_all_amplicons:
         all_results_dir = os.path.join(dir_sample, 'all_results')
         if not os.path.exists(all_results_dir):
@@ -196,7 +204,8 @@ def main():
         results_all.to_excel(os.path.join(all_results_dir, 'results_combined_detailed.xlsx'))
         results_summary = uditas_helpers.summarize_results(all_results_alignments_junction)
         results_summary_with_experiments = pd.concat([experiments, results_summary], axis=1)
-
+        
+        #This puts together all the data from the different experiments
         results_summary_with_experiments['version'] = __version__
         results_summary_with_experiments['args'] = repr(vars(args))
         results_summary_with_experiments.to_excel(os.path.join(all_results_dir, 'results_summary.xlsx'))
@@ -205,10 +214,12 @@ def main():
         results_pivot.to_excel(os.path.join(all_results_dir, 'results_summary_pivot.xlsx'))
 
         cols_to_use = all_samples_summary_alignments.columns.difference(results_summary_with_experiments.columns)
-
+        
+        
         big_results = pd.merge(results_summary_with_experiments, all_samples_summary_alignments[cols_to_use],
                                left_index=True, right_index=True, how='outer')
 
+        #this is the consoidation into one table sheet with summarized_big_results. It takes the results summary and makes it more easy to read.
         summarized_big_results = uditas_helpers.summarize_big_results(big_results)
         experiments['version'] = __version__
         experiments['args'] = repr(vars(args))

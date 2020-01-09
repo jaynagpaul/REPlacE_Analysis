@@ -2,8 +2,9 @@ UDiTaS v1.0
 ===========
 
 Enviornmental Variable Setting:
-
+For global alignments
 export BOWTIE2_INDEXES=/media/edanner/NewUbuntuSpace/Workspace/Ref_Genomes
+for looking up reference sequences by location
 export GENOMES_2BIT=/media/edanner/NewUbuntuSpace/Workspace/Ref_Genomes
 
 check:  > echo $BOWTIE2_INDEXES
