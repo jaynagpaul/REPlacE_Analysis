@@ -4,3 +4,4 @@ test/__pycache__/*
 uditas.egg-info/*
 *.pyc
 dist/*
+.ipynb_checkpoints/*
