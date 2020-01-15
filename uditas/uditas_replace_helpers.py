@@ -368,18 +368,16 @@ def correct_priming(dir_sample, amplicon_info, primer_seq_plus_downstream):
 
         reads_in_experiment_list_count = 0
 
-        reads_not_in_experiment_list_count = 0
+        reads_misprimed = 0
 
-        mismatch_count = 0
-        mismatch_count_r1 = 0
-        mismatch_count_r2 = 0
-
-        mismatch_dict_r1 = dict()
-        mismatch_dict_r2 = dict()
+        reads_good_prime = 0
+    
  
         r1_r2 = itertools.izip(r1_file, r2_file)
 
         for header_r1, header_r2 in r1_r2:
+            reads_in_experiment_list_count += 1
+            
     
             seq_r1, seq_r2 = r1_r2.next()
 
@@ -416,6 +414,8 @@ def correct_priming(dir_sample, amplicon_info, primer_seq_plus_downstream):
                         
             #Print good reads 
             if is_good_read:
+                reads_good_prime += 1
+                
                 # We test whether the read has on of the combination of indices from our experiment list
                 # If not save in a separate file
                 r1f = ref_file_R1_corrprime
@@ -424,7 +424,7 @@ def correct_priming(dir_sample, amplicon_info, primer_seq_plus_downstream):
                 print("\n".join([header_r1.rstrip(), seq_r1.rstrip(), "+", qual_r1.rstrip()]), file=r1f)
                 print("\n".join([header_r2.rstrip(), seq_r2.rstrip(), "+", qual_r2.rstrip()]), file=r2f)
                     
-                reads_in_experiment_list_count += 1
+                
                 
 
             else:
@@ -432,10 +432,11 @@ def correct_priming(dir_sample, amplicon_info, primer_seq_plus_downstream):
                 print("\n".join([header_r1.rstrip(), seq_r1.rstrip(), "+", qual_r1.rstrip()]), file=ref_file_out_r1_not_corrprime)
                 print("\n".join([header_r2.rstrip(), seq_r2.rstrip(), "+", qual_r2.rstrip()]), file=ref_file_out_r2_not_corrprime)
                 
-                reads_not_in_experiment_list_count += 1
+                reads_misprimed += 1
                 
         print('reads_in_experiment_list_count', reads_in_experiment_list_count)
-        print('reads_not_in_experiment_list_count', reads_not_in_experiment_list_count)
+        print(' reads with good priming:', reads_good_prime)
+        print('reads misprimed', reads_misprimed)
 
 #these are copied and unchanged from the Uditas v1 software
 
@@ -2033,5 +2034,435 @@ def melt_results(results_summary_with_experiments):
 
 
 
+#this function is for preparing LAM files made by Misha for  These 'UMIs' are not real. They are just 
+# put together to allow the uditas to work. But there is no UMI in the LAM setup these are random seqs
+
+# The adapter sequence is in read 2 : GACTATAGGGCACGCGTGG
+# both read 1 and 2 have 5nt of random at the begining NNNNN
+
+def umi_joining(dir_sample, amplicon_info):
+    length_of_umis_on_end = 5
+    adapter_seq = 'GACTATAGGGCACGCGTGG'
+    adapt_len = len(adapter_seq)
+    
+    #define the input files and output files
+    N7 = amplicon_info['index_I1']
+    N5 = amplicon_info['index_I2']
+
+    #input files
+    r1_fastq = create_filename(dir_sample, N7, N5, 'R1fastqgz')
+    r2_fastq = create_filename(dir_sample, N7, N5, 'R2fastqgz')
+    
+    
+    #output files not gz compressed #NEED TO FIX!
+    file_R1_LAM = create_filename(dir_sample, N7, N5, 'R1fastq_LAM')
+    file_R2_LAM = create_filename(dir_sample, N7, N5, 'R2fastq_LAM')
+    rUMI_fastq = create_filename(dir_sample, N7, N5, 'umifastq')
+    
+    
+    #open/create all these files
+    ref_file_R1_LAM = open(file_R1_LAM, "w")
+    ref_file_R2_LAM = open(file_R2_LAM, "w")
+    ref_rUMI_fastq = open(rUMI_fastq, "w")
+    
+    file_count = 0
+    
+    UMI_list = []
+    
+    # We open r1,r2 files and make our new files
+    with open_fastq_or_gz(r1_fastq) as r1_file, open_fastq_or_gz(r2_fastq) as r2_file:
+        # Add counters for all reads
+
+        reads_in_experiment_list_count = 0
+
+        reads_not_in_experiment_list_count = 0
+        
+        r1_r2 = itertools.izip(r1_file, r2_file)
+        
+        
+        for header_r1, header_r2 in r1_r2:
+    
+            seq_r1_UMI, seq_r2_UMI_adapter = r1_r2.next()
+
+            r1_r2.next()
+
+            qual_r1_UMI, qual_r2_UMI_adapter = r1_r2.next()
+
+            seq_r1_UMI, seq_r2_UMI_adapter = seq_r1_UMI.rstrip(), seq_r2_UMI_adapter.rstrip()
+
+            qual_r1_UMI, qual_r2_UMI_adapter = qual_r1_UMI.rstrip(), qual_r2_UMI_adapter.rstrip()
+            
+            #choose the UMI sequences and qualities. Combin read 1 and read 2
+            
+            umi1 = seq_r1_UMI[:length_of_umis_on_end]
+            umi2 = seq_r2_UMI_adapter[:length_of_umis_on_end]
+            umi = umi1 + umi2
+            
+            UMI_list.append(umi)
+            
+            umi_qual1 = qual_r1_UMI[:length_of_umis_on_end]
+            umi_qual2 = qual_r2_UMI_adapter[:length_of_umis_on_end]
+            umi_qual = umi_qual1 + umi_qual2
+            
+            # take read 1 and 2 and make without the UMI/adapter sequences
+            
+            seq_r1 = seq_r1_UMI[length_of_umis_on_end:]
+            seq_r1_qual = qual_r1_UMI[length_of_umis_on_end:]
+            
+            length_UMI_adapter = length_of_umis_on_end + adapt_len
+            seq_r2 = seq_r2_UMI_adapter[length_UMI_adapter:]
+            seq_r2_qual = seq_r2_UMI_adapter[length_UMI_adapter:]
+            
+            #now print r1, r2, and the umi to fastq files
+            
+            #read1
+            print("\n".join([header_r1.rstrip(), seq_r1.rstrip(), "+", seq_r1_qual.rstrip()]), file=ref_file_R1_LAM)
+            #read2
+            print("\n".join([header_r1.rstrip(), seq_r2.rstrip(), "+", seq_r2_qual.rstrip()]), file=ref_file_R2_LAM)
+            #umis
+            print("\n".join([header_r1.rstrip(), umi.rstrip(), "+", umi_qual.rstrip()]), file=ref_rUMI_fastq)
+            
+            file_count += 1
+    
+    print('number of reads:', file_count)
+    unique_umis = len(set(UMI_list))
+    print('number of unique umis', unique_umis)
 
 
+
+#this is different than my other correct priming in that it looks at the other read.
+
+######### this reads a different input file than Tn5!!!###########
+
+def correct_priming_lam(dir_sample, amplicon_info, primer_seq_plus_downstream):
+    
+    #defined the sequence as input (primer and 12 nt downstream). Normally 32-37nt sequence
+    n_max_mismatches = 3
+    length_primer_down = len(primer_seq_plus_downstream)
+    
+    files_out = list()
+    n_file = 0
+    files_out_dict = dict()
+
+    for file_selected in files_out:
+        files_out_dict[os.path.basename(file_selected)] = n_file
+        n_file += 1
+    
+    
+    #define the input files and output files
+    N7 = amplicon_info['index_I1']
+    N5 = amplicon_info['index_I2']
+    
+    #input files Now altered to input the lam treated files.
+    
+    r1_fastq = create_filename(dir_sample, N7, N5, 'R1fastq_LAM')
+    r2_fastq = create_filename(dir_sample, N7, N5, 'R2fastq_LAM')
+    
+    #output files not gz compressed
+    file_R1_corrprime = create_filename(dir_sample, N7, N5, 'R1fastq_CorrPrime')
+    file_R2_corrprime = create_filename(dir_sample, N7, N5, 'R2fastq_CorrPrime')
+
+    #mismatched files
+    file_out_r1_not_corrprime = os.path.join(dir_sample, N7 + '_' + N5, 'fastq_files', 'mis_prime_R1.fastq')
+    file_out_r2_not_corrprime = os.path.join(dir_sample, N7 + '_' + N5, 'fastq_files', 'mis_prime_R2.fastq')
+
+    #open/create all these files
+    ref_file_R1_corrprime = open(file_R1_corrprime, "w")
+    ref_file_R2_corrprime = open(file_R2_corrprime, "w")
+
+    ref_file_out_r1_not_corrprime = open(file_out_r1_not_corrprime, "w")
+    ref_file_out_r2_not_corrprime = open(file_out_r2_not_corrprime, "w")
+    
+    file_read_counts = [0] * len(files_out)
+    
+    # We open r1,r2 files and distribute reads
+    with open_fastq_or_gz(r1_fastq) as r1_file, open_fastq_or_gz(r2_fastq) as r2_file:
+        # Add counters for all reads
+
+        reads_in_experiment_list_count = 0
+
+        reads_good_prime = 0
+        read_misprimed = 0
+        read_perfect_match = 0
+        read_mismatch_but_good = 0
+ 
+        r1_r2 = itertools.izip(r1_file, r2_file)
+
+        for header_r1, header_r2 in r1_r2:
+   
+            seq_r1, seq_r2 = r1_r2.next()
+
+            r1_r2.next()
+
+            qual_r1, qual_r2 = r1_r2.next()
+
+            seq_r1, seq_r2 = seq_r1.rstrip(), seq_r2.rstrip()
+
+            qual_r1, qual_r2 = qual_r1.rstrip(), qual_r2.rstrip()
+
+            #We mask with N any bases with scores below or equal to , (11, default in mask)
+            
+            #don't need seq1
+            #seq_r1_use = mask(seq_r1, qual_r1)
+
+            #this is modified for and LAM has the primer on read1
+            seq_r1_use = mask(seq_r1[:length_primer_down], qual_r1[:length_primer_down])
+
+    
+            # change to 1 for reads with perfect match or match within hamming distance decided above
+            is_good_read = 0
+
+            if seq_r1_use == primer_seq_plus_downstream:
+                # perfect match case
+                is_good_read = 1
+                read_perfect_match += 1
+            else:
+                # We look for barcodes with up to two mismatches, default in select_barcode
+                h_d = hamm_dist(seq_r1_use, primer_seq_plus_downstream)
+                if h_d <= n_max_mismatches:
+                    # match after checking within hamming distance
+                    is_good_read = 1
+                    read_mismatch_but_good +=1
+
+            reads_in_experiment_list_count += 1
+
+                        
+            #Print good reads 
+            if is_good_read:
+                reads_good_prime += 1
+                
+                # We test whether the read has on of the combination of indices from our experiment list
+                # If not save in a separate file
+                r1f = ref_file_R1_corrprime
+                r2f = ref_file_R2_corrprime
+
+                print("\n".join([header_r1.rstrip(), seq_r1.rstrip(), "+", qual_r1.rstrip()]), file=r1f)
+                print("\n".join([header_r2.rstrip(), seq_r2.rstrip(), "+", qual_r2.rstrip()]), file=r2f)
+                    
+                
+
+            else:
+                # We print reads with mispriming
+                print("\n".join([header_r1.rstrip(), seq_r1.rstrip(), "+", qual_r1.rstrip()]), file=ref_file_out_r1_not_corrprime)
+                print("\n".join([header_r2.rstrip(), seq_r2.rstrip(), "+", qual_r2.rstrip()]), file=ref_file_out_r2_not_corrprime)
+                
+                read_misprimed += 1
+                
+        print('total_read_number', reads_in_experiment_list_count)
+        print('reads_with_good_priming', reads_good_prime)
+        print('reads_with_bad_priming', read_misprimed)
+        print('perfect matched',read_perfect_match)
+
+        print('good but mismatched',read_mismatch_but_good)
+
+ 
+# functions to align trimmed-to-break reads to the genome
+
+
+############################
+#
+#  #input is the correctly primed part from pipeline1
+# This is used to trim the fastq files. Originally it was just to trim off the adapter sequences.
+# However in this case we use it to trim off the sequences up to the break
+
+# for Tn5 use the reverse compliment and read1. Read 1 starts distal to the site
+# for LAM use read2
+
+# ##########################
+def trim_fastq_to_break(dir_sample, amplicon_info, seq_primer_to_breaksite, lam_or_tn5='tn5'):
+
+    
+    seqRC = reverse_complement(seq_primer_to_breaksite)
+     
+    
+    # We first check if the experiment had any guides
+    N7 = amplicon_info['index_I1']
+    N5 = amplicon_info['index_I2']
+
+    # input files
+    #for Tn5 we only use read 1 as it is the sequence distal to the gene specific primer
+    file_R1 = create_filename(dir_sample, N7, N5, 'R1fastq_CorrPrime')
+    file_R2 = create_filename(dir_sample, N7, N5, 'R2fastq_CorrPrime')
+    
+    if lam_or_tn5 == 'tn5':
+        input_file = file_R1
+    elif lam_or_tn5 == 'lam':
+        input_file = file_R2
+    else:
+        print('input has to be "tn5" or "lam" ')
+    
+     # output files -trimmed to break
+    file_cutadapt_R1 = create_filename(dir_sample, N7, N5, 'R1trimmed2break')
+    file_cutadapt_R2 = create_filename(dir_sample, N7, N5, 'R2trimmed2break')
+    file_cutadapt_report = create_filename(dir_sample, N7, N5, 'trimmed_report2break')
+    
+    if lam_or_tn5 == 'tn5':
+        output_file = file_cutadapt_R1
+    elif lam_or_tn5 == 'lam':
+        output_file = file_cutadapt_R2
+    else:
+        print('input has to be "tn5" or "lam" ')
+        
+    if not os.path.exists(os.path.dirname(file_cutadapt_R1)):
+        os.mkdir(os.path.dirname(file_cutadapt_R1))
+
+    # remove adapters with cutadapt
+    #original uditas peramiter had an error -e 0.33 (but was cutting of random stuff too much)
+    cutadapt_command = ['cutadapt',
+                        '-m', '20',
+                        '-e', '0.20',
+                        '-a', seqRC,
+                        '-o', output_file,
+                        input_file]
+
+    handle_cutadapt_report = open(file_cutadapt_report, 'wb')
+    subprocess.call(cutadapt_command, stdout=handle_cutadapt_report)
+    handle_cutadapt_report.close()
+
+############################
+#
+# Align reads that did not map to the amplicons of interest
+#
+# Input: directory to be analyzed
+#        amplicon_info, slice of sample_info.csv for the sample being processed
+#        assembly, name of the assembly to be used by bowtie2. It is convenient to place it in a folder especified by
+#        the environmental variable BOWTIE2_INDEXES
+#   lam_or_tn5 needs to be 'lam' or 'tn5'
+# ##########################
+
+def align_afterbreak_end_to_end_genome_global(dir_sample, amplicon_info, assembly, ncpu=4, lam_or_tn5='tn5'):
+
+    # We first check if the experiment had any guides
+    N7 = amplicon_info['index_I1']
+    N5 = amplicon_info['index_I2']
+    
+    #input
+    # Read1 for Tn5 Read2 for LAM
+    if lam_or_tn5 == 'tn5':
+        file_Read = create_filename(dir_sample, N7, N5, 'R1trimmed2break')
+    elif lam_or_tn5 == 'lam':
+        file_Read = create_filename(dir_sample, N7, N5, 'R2trimmed2break')
+
+
+    file_sam_genome_global = create_filename(dir_sample, N7, N5, 'break_trimmed_sam_genome_global')
+    file_sam_report_genome_global = create_filename(dir_sample, N7, N5, 'break_trimmed_sam_report_genome_global')
+
+    if not os.path.exists(os.path.dirname(file_sam_genome_global)):
+        os.mkdir(os.path.dirname(file_sam_genome_global))
+
+    file_bam_genome_global = create_filename(dir_sample, N7, N5, 'break_trimmed_bam_genome_global')
+    file_sorted_bam_genome_global = create_filename(dir_sample, N7, N5, 'break_trimmed_sorted_bam_genome_global')
+
+    if not os.path.exists(os.path.dirname(file_bam_genome_global)):
+        os.mkdir(os.path.dirname(file_bam_genome_global))
+
+    # global alignment to the genome with bowtie2
+    initial_dir = os.getcwd()
+
+    bowtie2_command = ['bowtie2', '--very-sensitive', '-p', str(ncpu),
+                       '-X', '5000', '-k', '2', '-x', assembly,
+                       '-U', file_Read, '-S', file_sam_genome_global]
+
+    handle_sam_report_genome_global = open(file_sam_report_genome_global, 'wb')
+
+    subprocess.call(bowtie2_command, stderr=handle_sam_report_genome_global)
+
+    handle_sam_report_genome_global.close()
+
+    # convert sam to bam
+    sam_to_bam_genome_global_command = ['samtools', 'view', '-Sb', file_sam_genome_global]
+
+    handle_file_bam_genome_global = open(file_bam_genome_global, 'wb')
+
+    subprocess.call(sam_to_bam_genome_global_command, stdout=handle_file_bam_genome_global)
+
+    # sort bam files
+    sort_bam_genome_global_command = ['samtools', 'sort', file_bam_genome_global, '-o', file_sorted_bam_genome_global]
+
+    subprocess.call(sort_bam_genome_global_command)
+
+    # Clean up
+    os.remove(file_sam_genome_global)
+    os.remove(file_bam_genome_global)
+
+    # Create bam index files
+    create_bam_genome_global_index_command = ['samtools', 'index', file_sorted_bam_genome_global]
+    subprocess.call(create_bam_genome_global_index_command)
+
+    os.chdir(initial_dir)
+
+
+############################
+#       If you put in unmapped = 1 then it uses the unmapped to amplicons read, otherwise it just maps from trimmed fastq
+# Aligns reads to the whole genome using bowtie2 and local alignment. This is needed to find translocations using
+#   split reads and a program like socrates
+#   --local aligment means that the sequence can be soft clipped at ends and is used in translocation programs that then align the clipped ends.
+#
+# Input: directory to be analyzed
+#        amplicon_info, slice of sample_info.csv for the sample being processed
+#        assembly, name of the assembly to be used by bowtie2. It is convenient to place it in a folder especified by
+#        the environmental variable BOWTIE2_INDEXES
+#
+# ##########################
+def align_afterbreaks_genome_local(dir_sample, unmapped_amplicons, amplicon_info, assembly, lam_or_tn5='tn5'):
+
+    # We first check if the experiment had any guides
+    N7 = amplicon_info['index_I1']
+    N5 = amplicon_info['index_I2']
+    
+
+    
+    #input
+    # Read1 for Tn5 Read2 for LAM
+    if lam_or_tn5 == 'tn5':
+        file_Read = create_filename(dir_sample, N7, N5, 'R1trimmed2break')
+    elif lam_or_tn5 == 'lam': 
+        file_Read = create_filename(dir_sample, N7, N5, 'R2trimmed2break')
+    
+    file_sam_genome_local = create_filename(dir_sample, N7, N5, 'break_trimmed_sam_genome_local')
+    file_sam_report_genome_local = create_filename(dir_sample, N7, N5, 'break_trimmed_sam_report_genome_local')
+
+    if not os.path.exists(os.path.dirname(file_sam_genome_local)):
+        os.mkdir(os.path.dirname(file_sam_genome_local))
+
+    file_bam_genome_local = create_filename(dir_sample, N7, N5, 'break_trimmed_bam_genome_local')
+    file_sorted_bam_genome_local = create_filename(dir_sample, N7, N5, 'break_trimmed_sorted_bam_genome_local')
+    # file_sorted_bai_genome_local = create_filename(dir_sample, N7, N5, 'sorted_bai_genome_local')
+
+    if not os.path.exists(os.path.dirname(file_bam_genome_local)):
+        os.mkdir(os.path.dirname(file_bam_genome_local))
+
+    # local alignment to the genome with bowtie2
+    initial_dir = os.getcwd()
+
+    bowtie2_command = ['bowtie2', '--local', '-p', str(ncpu),
+                       '-X', '5000', '-k', '2', '-x', assembly,
+                             '-U', file_Read, '-S', file_sam_genome_local]
+
+    handle_sam_report_genome_local = open(file_sam_report_genome_local, 'wb')
+
+    subprocess.call(bowtie2_command, stderr=handle_sam_report_genome_local)
+
+    handle_sam_report_genome_local.close()
+
+    # convert sam to bam
+    sam_to_bam_genome_local_command = ['samtools', 'view', '-Sb', file_sam_genome_local]
+
+    handle_file_bam_genome_local = open(file_bam_genome_local, 'wb')
+
+    subprocess.call(sam_to_bam_genome_local_command, stdout=handle_file_bam_genome_local)
+
+    # sort bam files
+    sort_bam_genome_local_command = ['samtools', 'sort', file_bam_genome_local, '-o', file_sorted_bam_genome_local]
+
+    subprocess.call(sort_bam_genome_local_command)
+
+    # Clean up
+    os.remove(file_sam_genome_local)
+    os.remove(file_bam_genome_local)
+
+    # Create bam index files
+    create_bam_genome_local_index_command = ['samtools', 'index', file_sorted_bam_genome_local]
+    subprocess.call(create_bam_genome_local_index_command)
+
+    os.chdir(initial_dir)

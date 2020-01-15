@@ -700,7 +700,7 @@ def create_amplicon(dir_sample, amplicon_info, file_genome_2bit, amplicon_window
             if end_coordinate > len(genome[amplicon_info['chr']]):
                 end_coordinate = len(genome[amplicon_info['chr']])
             amplicon_list.append(['wt', genome[amplicon_info['chr']][int(amplicon_info['start']):end_coordinate]])
-        elif amplicon_info['strand'] == '-':
+             amplicon_info['strand'] == '-':
             start_coordinate = int(amplicon_info['end']) - amplicon_window_around_cut
             if start_coordinate < 0:
                 start_coordinate = 0
