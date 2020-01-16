@@ -2286,8 +2286,10 @@ def trim_fastq_to_break(dir_sample, amplicon_info, seq_primer_to_breaksite, lam_
     
     if lam_or_tn5 == 'tn5':
         input_file = file_R1
+        print('tn5 analysis')
     elif lam_or_tn5 == 'lam':
         input_file = file_R2
+        print('lam analysis')
     else:
         print('input has to be "tn5" or "lam" ')
     
@@ -2330,7 +2332,7 @@ def trim_fastq_to_break(dir_sample, amplicon_info, seq_primer_to_breaksite, lam_
 #   lam_or_tn5 needs to be 'lam' or 'tn5'
 # ##########################
 
-def align_afterbreak_end_to_end_genome_global(dir_sample, amplicon_info, assembly, ncpu=4, lam_or_tn5='tn5'):
+def align_afterbreak_end_to_end_genome_global(dir_sample, amplicon_info, assembly, lam_or_tn5='tn5', ncpu=4, keep_sam=0):
 
     # We first check if the experiment had any guides
     N7 = amplicon_info['index_I1']
@@ -2340,8 +2342,10 @@ def align_afterbreak_end_to_end_genome_global(dir_sample, amplicon_info, assembl
     # Read1 for Tn5 Read2 for LAM
     if lam_or_tn5 == 'tn5':
         file_Read = create_filename(dir_sample, N7, N5, 'R1trimmed2break')
+        print('tn5 analysis')
     elif lam_or_tn5 == 'lam':
         file_Read = create_filename(dir_sample, N7, N5, 'R2trimmed2break')
+        print('lam analysis')
 
 
     file_sam_genome_global = create_filename(dir_sample, N7, N5, 'break_trimmed_sam_genome_global')
@@ -2382,7 +2386,11 @@ def align_afterbreak_end_to_end_genome_global(dir_sample, amplicon_info, assembl
     subprocess.call(sort_bam_genome_global_command)
 
     # Clean up
-    os.remove(file_sam_genome_global)
+    if keep_sam == 0:
+        os.remove(file_sam_genome_global)
+        print('sam file deleted')
+
+    
     os.remove(file_bam_genome_global)
 
     # Create bam index files
@@ -2404,7 +2412,7 @@ def align_afterbreak_end_to_end_genome_global(dir_sample, amplicon_info, assembl
 #        the environmental variable BOWTIE2_INDEXES
 #
 # ##########################
-def align_afterbreaks_genome_local(dir_sample, unmapped_amplicons, amplicon_info, assembly, lam_or_tn5='tn5'):
+def align_afterbreaks_genome_local(dir_sample, unmapped_amplicons, amplicon_info, assembly, lam_or_tn5='tn5', ncpu=4, keep_sam=0):
 
     # We first check if the experiment had any guides
     N7 = amplicon_info['index_I1']
@@ -2416,8 +2424,10 @@ def align_afterbreaks_genome_local(dir_sample, unmapped_amplicons, amplicon_info
     # Read1 for Tn5 Read2 for LAM
     if lam_or_tn5 == 'tn5':
         file_Read = create_filename(dir_sample, N7, N5, 'R1trimmed2break')
+        print('tn5 analysis')
     elif lam_or_tn5 == 'lam': 
         file_Read = create_filename(dir_sample, N7, N5, 'R2trimmed2break')
+        print('lam analysis')
     
     file_sam_genome_local = create_filename(dir_sample, N7, N5, 'break_trimmed_sam_genome_local')
     file_sam_report_genome_local = create_filename(dir_sample, N7, N5, 'break_trimmed_sam_report_genome_local')
@@ -2458,7 +2468,9 @@ def align_afterbreaks_genome_local(dir_sample, unmapped_amplicons, amplicon_info
     subprocess.call(sort_bam_genome_local_command)
 
     # Clean up
-    os.remove(file_sam_genome_local)
+    if keep_sam == 0:
+        os.remove(file_sam_genome_local)
+        print('sam file deleted')
     os.remove(file_bam_genome_local)
 
     # Create bam index files
