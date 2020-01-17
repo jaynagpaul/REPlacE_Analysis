@@ -1113,7 +1113,7 @@ def analyze_alignments_plasmid(dir_sample, amplicon_info, min_MAPQ, file_genome_
             seq_after_uditas_primer = genome[amplicon_info['chr']][int(amplicon_info['end']):int((amplicon_info['end'] + length_to_test))]
             
         elif amplicon_info['strand'] == '-':
-            seq_after_uditas_primer = reverse_complement(genome[amplicon_info['chr']][(amplicon_info['start'] - length_to_test):amplicon_info['start']])
+            seq_after_uditas_primer = reverse_complement(genome[amplicon_info['chr']][int((amplicon_info['start'] - length_to_test)):(int(amplicon_info['start']))])
         n_max_mismatches = 2  # We allow this number of mismatches between the read and the sequence after the primer
 
         names_list_plasmid_genome = []
@@ -1125,10 +1125,9 @@ def analyze_alignments_plasmid(dir_sample, amplicon_info, min_MAPQ, file_genome_
             if read.mapping_quality >= min_MAPQ and not read.is_unmapped and not read.is_secondary:
                 if read.is_read2:  # R2 is the UDiTaS primer
                     if read.is_reverse:
-                        seq_test = reverse_complement(read.query_sequence)[uditas_primer_length:(uditas_primer_length + length_to_test)]
+                        seq_test = reverse_complement(read.query_sequence)[int(uditas_primer_length):int((uditas_primer_length + length_to_test))]
                     else:
-                        seq_test = read.query_sequence[uditas_primer_length:(uditas_primer_length + length_to_test)]
-
+                        seq_test = read.query_sequence[int(uditas_primer_length): int(uditas_primer_length + length_to_test)]
                     # Sometimes, after cutadapt we have a read shorter than uditas_primer_length + length_to_test
                     # We skip those directly without calculating hamm_dist, which doesn't make sense
                     if (len(seq_test) == len(seq_after_uditas_primer.upper()) and
@@ -2032,6 +2031,24 @@ def melt_results(results_summary_with_experiments):
 
     return results_out
 
+#######################################################################################
+# We pivot but don't use the collaped reads because the UMI information doesn't exist for LAM
+#######################################################################################
+def melt_results_lam(results_summary_with_experiments):
+
+    melt_list = [k for k in results_summary_with_experiments.keys() if
+                 str(k).endswith('_total_reads_percent')]
+
+    frozen_list = list(results_summary_with_experiments)
+
+    for el in melt_list:
+        frozen_list.remove(el)
+
+    results_out = pd.melt(results_summary_with_experiments,
+                          value_vars=melt_list,
+                          id_vars=frozen_list, var_name='Type', value_name='Percent Editing')
+
+    return results_out
 
 
 #this function is for preparing LAM files made by Misha for  These 'UMIs' are not real. They are just 
@@ -2311,7 +2328,7 @@ def trim_fastq_to_break(dir_sample, amplicon_info, seq_primer_to_breaksite, lam_
     # remove adapters with cutadapt
     #original uditas peramiter had an error -e 0.33 (but was cutting of random stuff too much)
     cutadapt_command = ['cutadapt',
-                        '-m', '20',
+                        '-m', '25',
                         '-e', '0.20',
                         '-a', seqRC,
                         '-o', output_file,
