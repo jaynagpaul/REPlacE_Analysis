@@ -227,6 +227,8 @@ def create_filename(dir_sample, N7, N5, filetype):
         return os.path.join(main_folder, 'break_trimmed_bam_genome_local_files', N7 + '_' + N5 + '.sorted.bam')
     elif filetype == 'break_trimmed_sorted_bai_genome_local':
         return os.path.join(main_folder, 'break_trimmed_bam_genome_local_files', N7 + '_' + N5 + '.sorted.bam.bai')
+    elif filetype == 'break_trimmed_genome_local_bed':
+        return os.path.join(main_folder, 'break_trimmed_bam_genome_local_files', N7 + '_' + N5 + '.sorted.bed')
     ###############################################
     
     elif filetype == 'R1trimmed':
@@ -832,11 +834,16 @@ def create_amplicon(dir_sample, amplicon_info, file_genome_2bit, amplicon_window
         seq_cut1_cut2 = genome[amplicon_info['chr_guide_1']][int(cut1):int(cut2)]
         seq_downstream = genome[amplicon_info['chr_guide_1']][int(cut2):end_coordinate]
 
+#this does not cover everything because for hiti if you invert the excised exon it gets confusing so I jus tlook at the replace-seq + excised exon junction
         amplicon_list.append(['wt', seq_upstream + seq_cut1_cut2 + seq_downstream])
         amplicon_list.append(['large_deletion', seq_upstream + seq_downstream])
         amplicon_list.append(['large_inversion', seq_upstream + reverse_complement(seq_cut1_cut2) + seq_downstream])
         amplicon_list.append(['replace_fwd', seq_upstream + amplicon_info['Replace_Donor'] + seq_downstream])
         amplicon_list.append(['replace_rev', seq_upstream + reverse_complement(amplicon_info['Replace_Donor']) + seq_downstream])
+        amplicon_list.append(['hiti_5prime_replace_exon_fwd',  amplicon_info['Replace_Donor'] + seq_cut1_cut2])
+        amplicon_list.append(['hiti_5prime_replace_exon_rev',  reverse_complement(amplicon_info['Replace_Donor']) + seq_cut1_cut2])
+        amplicon_list.append(['hiti_3prime_replace_exon_fwd', seq_cut1_cut2 + amplicon_info['Replace_Donor']])
+        amplicon_list.append(['hiti_3prime_replace_exon_rev', seq_cut1_cut2 + reverse_complement(amplicon_info['Replace_Donor'])])
         amplicon_list.append(['doner_tail_tail', amplicon_info['Replace_Donor'] + reverse_complement(amplicon_info['Replace_Donor'])])
         amplicon_list.append(['doner_head_tail', amplicon_info['Replace_Donor'] + amplicon_info['Replace_Donor']])
         amplicon_list.append(['doner_head_head', reverse_complement(amplicon_info['Replace_Donor']) + amplicon_info['Replace_Donor']])      
@@ -1692,15 +1699,21 @@ def get_cut_in_reference_amplicon_df(amplicon_info, reaction_type, record, stran
             cut_site = amplicon_window_around_cut
         
         replace_length = int(len(amplicon_info['Replace_Donor']))
+        cut1_cut2_length = cut2 - cut1
         
         # In this case some amplicons (wt, large_inversion) have two cuts, the rest have one
         if record.name in ['wt', 'large_inversion']:
-            cut1_cut2_length = cut2 - cut1
             cut_in_reference_amplicon_df.loc[0] = ['cut1', cut_site]
             cut_in_reference_amplicon_df.loc[1] = ['cut2', cut_site + cut1_cut2_length]            
         elif record.name in ['replace_fwd', 'replace_rev']:
             cut_in_reference_amplicon_df.loc[0] = ['cut1', cut_site]
             cut_in_reference_amplicon_df.loc[1] = ['cut2', cut_site + replace_length]
+        #these are for the hiti alignments 
+        elif record.name in ['hiti_5prime_replace_exon_fwd', 'hiti_5prime_replace_exon_rev']:
+            cut_in_reference_amplicon_df.loc[0] = ['cut1', replace_length]
+        elif record.name in ['hiti_3prime_replace_exon_fwd', 'hiti_3prime_replace_exon_rev']:
+            cut_in_reference_amplicon_df.loc[0] = ['cut1', cut1_cut2_length]  
+        #concatomers
         elif record.name in ['doner_tail_tail', 'doner_head_tail', 'doner_head_head']:
             cut_in_reference_amplicon_df.loc[0] = ['cut1', replace_length]
         else:
@@ -1709,6 +1722,8 @@ def get_cut_in_reference_amplicon_df(amplicon_info, reaction_type, record, stran
         raise ReactionTypeError('Reaction type not yet supported by current version of UDiTaS')
 
     return cut_in_reference_amplicon_df
+
+
 
 
 ################################################################################
