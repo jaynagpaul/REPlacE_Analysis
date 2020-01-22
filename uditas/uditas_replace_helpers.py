@@ -217,6 +217,8 @@ def create_filename(dir_sample, N7, N5, filetype):
         return os.path.join(main_folder, 'break_trimmed_bam_genome_global_files', N7 + '_' + N5 + '.sorted.bam')
     elif filetype == 'break_trimmed_sorted_bai_genome_global':
         return os.path.join(main_folder, 'break_trimmed_bam_genome_global_files', N7 + '_' + N5 + '.sorted.bam.bai')
+    elif filetype == 'break_trimmed_genome_global_bed':
+        return os.path.join(main_folder, 'break_trimmed_bam_genome_global_files', N7 + '_' + N5 + 'global.sorted.bed')
     elif filetype == 'break_trimmed_sam_genome_local':
         return os.path.join(main_folder, 'break_trimmed_sam_genome_local_files', N7 + '_' + N5 + '.sam')
     elif filetype == 'break_trimmed_sam_report_genome_local':
@@ -228,7 +230,9 @@ def create_filename(dir_sample, N7, N5, filetype):
     elif filetype == 'break_trimmed_sorted_bai_genome_local':
         return os.path.join(main_folder, 'break_trimmed_bam_genome_local_files', N7 + '_' + N5 + '.sorted.bam.bai')
     elif filetype == 'break_trimmed_genome_local_bed':
-        return os.path.join(main_folder, 'break_trimmed_bam_genome_local_files', N7 + '_' + N5 + '.sorted.bed')
+        return os.path.join(main_folder, 'break_trimmed_bam_genome_local_files', N7 + '_' + N5 + 'local.sorted.bed')
+    elif filetype == 'all_bed':
+        return os.path.join(main_folder, '..', 'bed_files')
     ###############################################
     
     elif filetype == 'R1trimmed':
@@ -362,7 +366,6 @@ def correct_priming(dir_sample, amplicon_info, primer_seq_plus_downstream):
     ref_file_out_r1_not_corrprime = open(file_out_r1_not_corrprime, "w")
     ref_file_out_r2_not_corrprime = open(file_out_r2_not_corrprime, "w")
     
-    file_read_counts = [0] * len(files_out)
     
     # We open r1,r2 files and distribute reads
     with open_fastq_or_gz(r1_fastq) as r1_file, open_fastq_or_gz(r2_fastq) as r2_file:
@@ -440,84 +443,6 @@ def correct_priming(dir_sample, amplicon_info, primer_seq_plus_downstream):
         print(' reads with good priming:', reads_good_prime)
         print('reads misprimed', reads_misprimed)
 
-#these are copied and unchanged from the Uditas v1 software
-
-################################################################################
-# Open .fastq or .fastq.gz files for reading
-################################################################################
-def open_fastq_or_gz(filename):
-    if filename.endswith(".fastq") and os.access(filename, os.F_OK):
-        return open(filename, "rU")
-    elif filename.endswith(".fastq.gz") and os.access(filename, os.F_OK):
-        return gzip.open(filename, "rb")
-    elif filename.endswith(".fastq") and os.access(filename + ".gz", os.F_OK):
-        return gzip.open(filename + ".gz", "rb")
-    elif filename.endswith(".fastq.gz") and os.access(filename[:-3], os.F_OK):
-        return open(filename[:-3], "rU")
-    raise IOError("Unknown file: " + filename)
-
-################################################################################
-# Hamming distance
-# From http://code.activestate.com/recipes/499304-hamming-distance/
-################################################################################
-def hamm_dist(str1, str2):
-    assert len(str1) == len(str2)
-    ne = operator.ne
-    return sum(itertools.imap(ne, str1, str2))
-
-################################################################################
-# Select closest barcode with a maximum number of mismatches
-# By default it returns barcodes with a maximum of n_max_mismatches=2 mismatches
-################################################################################
-def select_barcode(seq, barcode_list, n_max_mismatches=1):
-    # This compares with all barcodes and selects the one with the smallest hamming distance
-    # Before calling this function check if the sequence is already a barcode
-    matched_barcodes = list()
-    distances = list()
-    for barcode in barcode_list:
-        h_d = hamm_dist(seq, barcode)
-        if h_d <= n_max_mismatches:
-            matched_barcodes.append(barcode)
-            distances.append(h_d)
-    indices = [i for i, x in enumerate(distances) if x == min(distances)]
-    return [matched_barcodes[i] for i in indices]
-
-
-################################################################################
-# Mask sequence by quality score
-################################################################################
-def mask(seq, qual, min_qual=12):
-
-    return "".join((b if (ord(q) - 33) >= min_qual else "N") for b, q in itertools.izip(seq, qual))
-
-
-################################################################################
-# get the reverse-complement DNA sequence
-################################################################################
-def reverse_complement(seq):
-    seq_dict = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G', 'N': 'N', 'a': 't', 't': 'a', 'g': 'c', 'c': 'g'}
-    return "".join([seq_dict[base] for base in reversed(seq)])
-
-
-################################################################################
-# Create umi dict
-################################################################################
-def create_umi_dict(filename):
-
-    umi_file = open_fastq_or_gz(filename)
-
-    umi_dict = dict()
-
-    umi_reads = itertools.izip(umi_file)
-
-    for header_umi in umi_reads:
-
-        seq_umi = umi_reads.next()
-        umi_reads.next()
-        qual_umi = umi_reads.next()
-        umi_dict[header_umi[0].split()[0][1:]] = [seq_umi[0].rstrip(), qual_umi[0].rstrip()]
-
-    return umi_dict
 
 
     ############################
@@ -608,8 +533,8 @@ def trim_fastq(dir_sample, amplicon_info, process_AMP_seq_run=0):
     file_cutadapt_R2 = create_filename(dir_sample, N7, N5, 'R2trimmed')
     file_cutadapt_report = create_filename(dir_sample, N7, N5, 'trimmed_report')
 
-    if not os.path.exists(os.path.dirname(file_cutadapt_R1)):
-        os.mkdir(os.path.dirname(file_cutadapt_R1))
+        if not os.path.exists(os.path.dirname(file_cutadapt_R1)):
+            os.mkdir(os.path.dirname(file_cutadapt_R1))
 
     # remove adapters with cutadapt
     #original uditas peramiter had an error -e 0.33 (but was cutting of random stuff too much)
@@ -1362,7 +1287,7 @@ def analyze_alignments_all_amplicons(dir_sample, amplicon_info, min_MAPQ, min_AS
     results_df.to_excel(results_file)
 
     return results_df
-
+    
 # Functions from Uditas to analyze the alignments. These support analyze_alignment()
 # This analysis looks at the indel distribution at the different cut sites.
 
@@ -2105,10 +2030,6 @@ def umi_joining(dir_sample, amplicon_info):
     with open_fastq_or_gz(r1_fastq) as r1_file, open_fastq_or_gz(r2_fastq) as r2_file:
         # Add counters for all reads
 
-        reads_in_experiment_list_count = 0
-
-        reads_not_in_experiment_list_count = 0
-        
         r1_r2 = itertools.izip(r1_file, r2_file)
         
         
@@ -2205,7 +2126,7 @@ def correct_priming_lam(dir_sample, amplicon_info, primer_seq_plus_downstream):
     ref_file_out_r1_not_corrprime = open(file_out_r1_not_corrprime, "w")
     ref_file_out_r2_not_corrprime = open(file_out_r2_not_corrprime, "w")
     
-    file_read_counts = [0] * len(files_out)
+
     
     # We open r1,r2 files and distribute reads
     with open_fastq_or_gz(r1_fastq) as r1_file, open_fastq_or_gz(r2_fastq) as r2_file:
@@ -2301,7 +2222,7 @@ def correct_priming_lam(dir_sample, amplicon_info, primer_seq_plus_downstream):
 # for LAM use read2
 
 # ##########################
-def trim_fastq_to_break(dir_sample, amplicon_info, seq_primer_to_breaksite, lam_or_tn5='tn5'):
+def trim_fastq_to_break(dir_sample, amplicon_info, seq_primer_to_breaksite, lam_or_tn5='tn5', length=35):
 
     
     seqRC = reverse_complement(seq_primer_to_breaksite)
@@ -2340,10 +2261,11 @@ def trim_fastq_to_break(dir_sample, amplicon_info, seq_primer_to_breaksite, lam_
     if not os.path.exists(os.path.dirname(file_cutadapt_R1)):
         os.mkdir(os.path.dirname(file_cutadapt_R1))
 
-    # remove adapters with cutadapt
+    # remove adapters with cutadapt Also perhaps increase it to 0.33
     #original uditas peramiter had an error -e 0.33 (but was cutting of random stuff too much)
+        #also I extended this to 35 as the 25 alignment was giving a lot of high scoring alignments so I wanted to make sure that they align to a unique genome spot
     cutadapt_command = ['cutadapt',
-                        '-m', '25',
+                        '-m', length,
                         '-e', '0.20',
                         '-a', seqRC,
                         '-o', output_file,

@@ -14,8 +14,31 @@
 ##  3. Put the chromosome length and centromeres coordinates files into the working directory or any downstream folder
 
 # Directories -------------------------------------------------------------
-setwd("/home/edanner/workspace/uditas/Pipeline2Plotting/")
-folder.with.sorted.bed <- "/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/Mishas_Demultiplexed_LAM/N707_N505/break_trimmed_bam_genome_local_files"
+##################################################################
+############################## local files  #########################
+######       LAM  #########
+#setwd("/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/Mishas_Demultiplexed_LAM/genome_plots_local")
+#
+#folder.with.sorted.bed <- "/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/Mishas_Demultiplexed_LAM/loca_genome_bed_files"
+
+#####         Tn5 #################
+#setwd("/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/P_Eric4_Tn5/genome_plots_tn5_local")
+#folder.with.sorted.bed <- "/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/P_Eric4_Tn5/local_genome_bed_files"
+
+
+################################################################
+#######################       global files #####################
+#####         LAM #####
+#setwd("/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/Mishas_Demultiplexed_LAM/genome_plots_global")
+#folder.with.sorted.bed <- "/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/Mishas_Demultiplexed_LAM/global_genome_bed_files"
+
+#####        Tn5  ###################
+setwd("/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/P_Eric4_Tn5/genome_plots_tn5_global")
+folder.with.sorted.bed <- "/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/P_Eric4_Tn5/global_genome_bed_files"
+
+
+
+
 
 # Logging -----------------------------------------------------------------
 report.file <- paste("lam_htgts_report_", format(Sys.time(), "%d%m%y_%H%M"), ".txt", sep = "")
@@ -402,6 +425,7 @@ color_of_lines <- 'black'
 
 
 # Read mapping import -----------------------------------------------------
+#jsut calling it now lam table
 lam.table <- bed.files
 # lam.table <- read.table(file = paste(folder.with.sorted.bed, "/", bed.files[1], sep = ""),
 #                         sep = '\t', header = FALSE, stringsAsFactors = FALSE)
@@ -469,8 +493,10 @@ lam.table$binX <- .bincode(lam.table$AX, bins)
 #lam.table$sample <- "bpA"
 #lam.table <- lam.table %>% filter(read.dir == "rev")
 
+#how to make things that have more than 3 reads
+
 for(i in unique(lam.table$filename)){
-  lam.table.temp <- filter(lam.table, filename == i & quality >= 100)
+  lam.table.temp <- filter(lam.table, filename == i & quality >= 40)
 
   lam.table.temp %>% group_by(chrom, binX) %>% summarise(AY = nth(AY, 1), reads.count = n()) -> lam
 
@@ -517,3 +543,4 @@ ggplot(contigs) +
   theme_classic() + scale_y_continuous(expand = c(0,0)) +
   xlab("Length, bp") +
   ylab("Mappings count")
+
