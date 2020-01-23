@@ -533,8 +533,8 @@ def trim_fastq(dir_sample, amplicon_info, process_AMP_seq_run=0):
     file_cutadapt_R2 = create_filename(dir_sample, N7, N5, 'R2trimmed')
     file_cutadapt_report = create_filename(dir_sample, N7, N5, 'trimmed_report')
 
-        if not os.path.exists(os.path.dirname(file_cutadapt_R1)):
-            os.mkdir(os.path.dirname(file_cutadapt_R1))
+    if not os.path.exists(os.path.dirname(file_cutadapt_R1)):
+        os.mkdir(os.path.dirname(file_cutadapt_R1))
 
     # remove adapters with cutadapt
     #original uditas peramiter had an error -e 0.33 (but was cutting of random stuff too much)
@@ -2226,8 +2226,8 @@ def trim_fastq_to_break(dir_sample, amplicon_info, seq_primer_to_breaksite, lam_
 
     
     seqRC = reverse_complement(seq_primer_to_breaksite)
-     
-    
+    length = str(length) 
+    print('minimum length after trimming is:', length)
     # We first check if the experiment had any guides
     N7 = amplicon_info['index_I1']
     N5 = amplicon_info['index_I2']

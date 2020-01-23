@@ -15,28 +15,18 @@
 
 # Directories -------------------------------------------------------------
 ##################################################################
-############################## local files  #########################
-######       LAM  #########
-#setwd("/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/Mishas_Demultiplexed_LAM/genome_plots_local")
-#
-#folder.with.sorted.bed <- "/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/Mishas_Demultiplexed_LAM/loca_genome_bed_files"
 
-#####         Tn5 #################
-#setwd("/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/P_Eric4_Tn5/genome_plots_tn5_local")
-#folder.with.sorted.bed <- "/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/P_Eric4_Tn5/local_genome_bed_files"
-
-
-################################################################
-#######################       global files #####################
 #####         LAM #####
-#setwd("/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/Mishas_Demultiplexed_LAM/genome_plots_global")
-#folder.with.sorted.bed <- "/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/Mishas_Demultiplexed_LAM/global_genome_bed_files"
+#input
+#folder.with.sorted.bed <- "/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/Mishas_Demultiplexed_LAM/bed_files"
+#output
+#setwd("/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/Mishas_Demultiplexed_LAM/bed_plots")
 
-#####        Tn5  ###################
-setwd("/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/P_Eric4_Tn5/genome_plots_tn5_global")
-folder.with.sorted.bed <- "/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/P_Eric4_Tn5/global_genome_bed_files"
-
-
+#################       Tn5  ###################
+# input
+folder.with.sorted.bed <- "/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/P_Eric4_Tn5/bed_files"
+# output
+setwd("/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/P_Eric4_Tn5/bed_plots")
 
 
 
@@ -198,7 +188,7 @@ for(i in bed.files){
   bed.temp$filename <- i
   bed <- bind_rows(bed, bed.temp)
 }
-bed.files <- bed %>% select(V1:V12, filename)
+  bed.files <- bed %>% select(V1:V12, filename)
 
 # 
 # bed.files <- read.table(paste0(folder.with.sorted.bed, "/N707_N505.sorted.bed"), stringsAsFactors = FALSE,
@@ -496,11 +486,11 @@ lam.table$binX <- .bincode(lam.table$AX, bins)
 #how to make things that have more than 3 reads
 
 for(i in unique(lam.table$filename)){
-  lam.table.temp <- filter(lam.table, filename == i & quality >= 40)
+  lam.table.temp <- filter(lam.table, filename == i & quality >= 20)
 
   lam.table.temp %>% group_by(chrom, binX) %>% summarise(AY = nth(AY, 1), reads.count = n()) -> lam
 
-  lam$reads.count.log <- log10(lam$reads.count + 1)
+  lam$reads.count.log <- log(lam$reads.count + 1, 7)
   lam$AX <- lam$binX * binwidth
   barheight <- 5
   lam$BY <- lam$AY + lam$reads.count.log * barheight
@@ -518,7 +508,7 @@ for(i in unique(lam.table$filename)){
     geom_point(aes(x = center.X, y = center.Y), size = 2, shape = 21, fill = 'deeppink2')+
     geom_text(aes(x = AX-35, y = AY+3, label = chrom), colour = "black")+
     geom_text(aes(x = BX + 50, y = AY+3, label = length.mbp), size = 3, colour = "black")+
-    geom_segment(data = lam, aes(x = AX-1, y = AY+2.5, xend = AX-1, yend = BY+2.5),
+    geom_segment(data = lam %>% filter(reads.count > 5), aes(x = AX-1, y = AY+2.5, xend = AX-1, yend = BY+2.5),
                  colour = "blue", size = 1)+
     theme_void()
 
@@ -531,7 +521,7 @@ for(i in unique(lam.table$filename)){
   rm(lam.table.temp)
 }
 
-lam.table %>% filter(filename == unique(lam.table$filename)[1] & quality >= 100) %>% nrow()
+  lam.table %>% filter(filename == unique(lam.table$filename)[1] & quality >= 20) %>% nrow()
 lam.table %>% filter(filename == unique(lam.table$filename)[1]) %>% nrow()
 lam.table$chrom %>% unique()
 
