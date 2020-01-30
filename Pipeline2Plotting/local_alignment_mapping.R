@@ -18,15 +18,15 @@
 
 #####         LAM #####
 #input
-#folder.with.sorted.bed <- "/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/Mishas_Demultiplexed_LAM/bed_files"
+folder.with.sorted.bed <- "/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/Mishas_Demultiplexed_LAM/bed_files"
 #output
-#setwd("/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/Mishas_Demultiplexed_LAM/bed_plots")
+setwd("/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/Mishas_Demultiplexed_LAM/bed_plots")
 
 #################       Tn5  ###################
 # input
-folder.with.sorted.bed <- "/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/P_Eric4_Tn5/bed_files"
+#folder.with.sorted.bed <- "/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/P_Eric4_Tn5/bed_files"
 # output
-setwd("/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/P_Eric4_Tn5/bed_plots")
+#setwd("/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/P_Eric4_Tn5/bed_plots")
 
 
 
@@ -498,7 +498,7 @@ for(i in unique(lam.table$filename)){
   lam$BX <- lam$AX + binwidth
 
 
-
+#this contains the information on read count
   lamplot <- ggplot(data = chrlen)+
     coord_cartesian(xlim = c(0, plot.width), ylim = c(0, plot.height))+
     geom_segment(aes(x = AX, y = AY, xend = BX, yend = BY), alpha = 0.2, color = "black", size = 1)+
@@ -508,7 +508,7 @@ for(i in unique(lam.table$filename)){
     geom_point(aes(x = center.X, y = center.Y), size = 2, shape = 21, fill = 'deeppink2')+
     geom_text(aes(x = AX-35, y = AY+3, label = chrom), colour = "black")+
     geom_text(aes(x = BX + 50, y = AY+3, label = length.mbp), size = 3, colour = "black")+
-    geom_segment(data = lam %>% filter(reads.count > 5), aes(x = AX-1, y = AY+2.5, xend = AX-1, yend = BY+2.5),
+    geom_segment(data = lam %>% filter(reads.count > 1), aes(x = AX-1, y = AY+2.5, xend = AX-1, yend = BY+2.5),
                  colour = "blue", size = 1)+
     theme_void()
 

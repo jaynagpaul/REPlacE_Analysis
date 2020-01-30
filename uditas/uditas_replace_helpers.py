@@ -321,6 +321,11 @@ def create_filename(dir_sample, N7, N5, filetype):
         return os.path.join(main_folder, 'results', N7 + '_' + N5 + '_summary_all_alignments.xlsx')
     elif filetype == 'read_counts':
         return os.path.join(main_folder, 'results', N7 + '_' + N5 + '_read_counts.xlsx')
+    ## more added
+    elif filetype == 'results_pipeline2_global':
+        return os.path.join(main_folder, 'results', N7 + '_' + N5 + '_results_pipeline2_global.xlsx')
+    elif filetype == 'results_pipeline2_local':
+        return os.path.join(main_folder, 'results', N7 + '_' + N5 + '_results_pipeline2_local.xlsx')
     
 
 #my homemade function to make a fastq with only correct priming events
@@ -1234,6 +1239,7 @@ def extract_unmapped_reads_amplicons(dir_sample, amplicon_info):
 
 ################################################################################
 # Function to calculate the number of reads and collapsed reads aligned to the reference amplicons
+        # this doesn't tell you which type or where
 # litterally just gives 2 numbers. Number of amplicons that were aligned and the number after collapse. Doesn't break it down by alignment to any particular amplicon
 ################################################################################
 def analyze_alignments_all_amplicons(dir_sample, amplicon_info, min_MAPQ, min_AS):
@@ -1684,7 +1690,8 @@ def analyze_alignments(dir_sample, amplicon_info, window_size, amplicon_window_a
     # We get the reference amplicon list
     with open(filename_amplicons_fa, "rU") as handle:
         records = list(SeqIO.parse(handle, "fasta"))
-
+    
+    #first we get fine the cut sites for each fasta amplicon
     for record in records:
         cut_df = get_cut_in_reference_amplicon_df(amplicon_info, reaction_type, record, strand, window_size,
                                                   amplicon_window_around_cut)
@@ -2366,7 +2373,7 @@ def align_afterbreak_end_to_end_genome_global(dir_sample, amplicon_info, assembl
 #        the environmental variable BOWTIE2_INDEXES
 #
 # ##########################
-def align_afterbreaks_genome_local(dir_sample, unmapped_amplicons, amplicon_info, assembly, lam_or_tn5='tn5', ncpu=4, keep_sam=0):
+def align_afterbreak_end_to_end_genome_globalreaks_genome_local(dir_sample, unmapped_amplicons, amplicon_info, assembly, lam_or_tn5='tn5', ncpu=4, keep_sam=0):
 
     # We first check if the experiment had any guides
     N7 = amplicon_info['index_I1']
@@ -2432,3 +2439,155 @@ def align_afterbreaks_genome_local(dir_sample, unmapped_amplicons, amplicon_info
     subprocess.call(create_bam_genome_local_index_command)
 
     os.chdir(initial_dir)
+
+
+# This quantifies the output of the local or global alignments. It searches for where in the genome
+# they alinged and then tallies this, and for the umis
+# choosing lam_or_tn5 just changes the output file to contain collaped UMIs or not (LAM doesn't have these)
+
+
+def quantify_pipeline2_alignments(dir_sample, global_or_local, amplicon_info, lam_or_tn5 = 'tn5',
+                                  targeting_vector_name = 'pE038_MC',
+                                   window_size=10000, min_MAPQ = 25, min_AS=-180):
+    #function beginning
+    # define samples
+    N7 = amplicon_info['index_I1']
+    N5 = amplicon_info['index_I2']
+    targeted_chromosome = amplicon_info['chr_guide_1']
+    
+    if global_or_local == 'global':
+        bam_file = create_filename(dir_sample, N7, N5, 'break_trimmed_sorted_bam_genome_global')
+        results_file = create_filename(dir_sample, N7, N5, 'results_pipeline2_global')
+    elif global_or_local == 'local':
+        bam_file = create_filename(dir_sample, N7, N5, 'break_trimmed_sorted_bam_genome_local')
+        results_file = create_filename(dir_sample, N7, N5, 'results_pipeline2_local')
+    
+    
+    #make the dictionary
+    file_UMI = create_filename(dir_sample, N7, N5, 'umifastqgz')
+    UMI_dict = create_barcode_dict(file_UMI)
+
+    #make the regions of the chromosome to be anlayzed
+    list_of_not_targeted_chromosomes = []
+    for i in range(1,23):
+        chromsome = ('chr'+str(i))
+        if chromsome != targeted_chromosome:
+            list_of_not_targeted_chromosomes.append(chromsome)
+        elif chromsome == targeted_chromosome:
+            #our region of interest
+            start_targeting_region = int(amplicon_info['start_guide_1']) - window_size
+            end_targeting_region = int(amplicon_info['start_guide_1']) + window_size
+    list_of_not_targeted_chromosomes = list_of_not_targeted_chromosomes + ['chrX', 'chrY', 'chrM']
+
+
+    #prepare counts for measing
+    alignments_target_site_names = []
+    alignments_target_site_umis = []
+    alignments_targeting_vector_names = []
+    alignments_targeting_vector_umis = []
+    alignments_on_other_chromosome_regions_names = []
+    alignments_on_other_chromosome_regions_umis = []
+
+    #open up the bam file
+    bam_alignment_file = pysam.AlignmentFile(bam_file, 'rb')
+    bam_in = bam_alignment_file.fetch()
+
+    #test each read
+    for read in bam_in:
+        if read.has_tag('AS'):
+            read_AS = read.get_tag('AS')
+        #check read quality is good
+        if read.mapping_quality >= min_MAPQ and read_AS >= min_AS and  not read.is_secondary:
+
+            # count the alignments to the vector
+            if read.reference_name == targeting_vector_name:           
+                alignments_targeting_vector_names.append(read.query_name)
+                alignments_targeting_vector_umis.append(UMI_dict[read.query_name][0])
+
+            elif read.reference_name in list_of_not_targeted_chromosomes:            
+                alignments_on_other_chromosome_regions_names.append(read.query_name)
+                alignments_on_other_chromosome_regions_umis.append(UMI_dict[read.query_name][0])
+
+            #if alignment matches between start_bin/end_bin then it is the targeted region
+            elif read.reference_name == targeted_chromosome:
+
+                if start_targeting_region < read.pos and read.pos < end_targeting_region:
+                    alignments_target_site_names.append(read.query_name)
+                    alignments_target_site_umis.append(UMI_dict[read.query_name][0])
+
+                #otherwise we add it to the list of translocations if its farther then our targeting region
+                else:
+                    alignments_on_other_chromosome_regions_names.append(read.query_name)
+                    alignments_on_other_chromosome_regions_umis.append(UMI_dict[read.query_name][0])
+
+
+    ##### calculating the results  ####
+    # targeting site        
+    count_target = len(alignments_target_site_names)
+    count_target_umis = len(set(alignments_target_site_umis))
+
+    # vector alignments
+    count_target_vector = len(alignments_targeting_vector_names)
+    count_target_vector_umis = len(set(alignments_targeting_vector_umis))
+
+    # translocations                               
+    count_translocations = len(alignments_on_other_chromosome_regions_names)
+    count_translocations_umis = len(set(alignments_on_other_chromosome_regions_umis))
+
+    #### totals ###
+    total_align = float(count_target + count_target_vector + count_translocations)
+    total_align_collapsed = float(count_target_umis + count_target_vector_umis + count_translocations_umis)
+
+    # % of total alignments
+    per_target_site = (count_target/total_align)*100
+    per_target_vector = count_target_vector/total_align*100
+    per_translocations = count_translocations/total_align*100
+
+    # % of collapsed alignments
+    per_target_site_collapsed = count_target_umis/total_align_collapsed*100
+    per_target_vector_collapsed = count_target_vector_umis/total_align_collapsed*100
+    per_translocations_collapsed = count_translocations_umis/total_align_collapsed*100
+    
+
+    results_df = pd.DataFrame({'alignments_target_site_all': [count_target],
+                               'collapsed_alignments_target_site': [count_target_umis],
+                               'alignments_target_vector_all': [count_target_vector],
+                               'collapsed_alignments_target_vector': [count_target_vector_umis],
+                               'alignments_translocations_all': [count_translocations],
+                               'collapsed_alignments_translocations': [count_translocations_umis],
+                               'total aligned reads': [total_align],
+                               'total collpased reads': [total_align_collapsed],
+                               '%_target_site_reads': [per_target_site],
+                               '%_target_vector_reads': [per_target_vector],
+                               '%_translocations': [per_translocations],
+                               '%_target_site_reads_collapsed': [per_target_site_collapsed],
+                               '%_target_vector_reads_collapsed': [per_target_vector_collapsed],
+                               '%_translocations_collapsed': [per_translocations_collapsed],
+                               }, 
+                                  columns = ['alignments_target_site_all',
+                                             'alignments_target_vector_all', 
+                                             'alignments_translocations_all',
+                                             'collapsed_alignments_target_site',
+                                             'collapsed_alignments_target_vector',
+                                             'collapsed_alignments_translocations', 
+                                             'total aligned reads', 
+                                             'total collpased reads',
+                                             '%_target_site_reads',
+                                             '%_target_vector_reads',
+                                             '%_translocations', 
+                                             '%_target_site_reads_collapsed', 
+                                             '%_target_vector_reads_collapsed', 
+                                             '%_translocations_collapsed'])
+    
+    if lam_or_tn5 == 'lam':
+        results_df = results_df[['alignments_target_site_all',
+                                             'alignments_target_vector_all', 
+                                             'alignments_translocations_all',
+                                             'total aligned reads',
+                                             '%_target_site_reads',
+                                             '%_target_vector_reads',
+                                             '%_translocations']]
+    
+    results_df.to_excel(results_file)
+
+    return results_df
