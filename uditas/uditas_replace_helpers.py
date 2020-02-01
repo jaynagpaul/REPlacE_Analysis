@@ -1,9 +1,15 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2.7
 # -*- coding: utf-8 -*-
 """
 Created on Wed Jan 15 12:53:02 2020
 
 @author: edanner
+
+Starting point was the Uditas software. Many functions have been tweaked and many new ones added.
+The indel analysis portions are untouched
+
+
+
 """
 from __future__ import print_function
 import matplotlib
@@ -134,6 +140,7 @@ def create_umi_dict(filename):
 #I added a bit to allow for the function that makes a fastq of the correctly primed targets
 #I  need to add to make  mishas umi file
 ################################################################################
+    
 def create_filename(dir_sample, N7, N5, filetype):
     main_folder = os.path.join(dir_sample, N7 + '_' + N5)
     if filetype == 'mainfolder':
@@ -217,6 +224,8 @@ def create_filename(dir_sample, N7, N5, filetype):
         return os.path.join(main_folder, 'break_trimmed_bam_genome_global_files', N7 + '_' + N5 + '.sorted.bam')
     elif filetype == 'break_trimmed_sorted_bai_genome_global':
         return os.path.join(main_folder, 'break_trimmed_bam_genome_global_files', N7 + '_' + N5 + '.sorted.bam.bai')
+    elif filetype == 'break_trimmed_filtered_and_sorted_genome_global':
+        return os.path.join(main_folder, 'break_trimmed_bam_genome_global_files', N7 + '_' + N5 + '_primary_as_mapq.sorted.bam')    
     elif filetype == 'break_trimmed_genome_global_bed':
         return os.path.join(main_folder, 'break_trimmed_bam_genome_global_files', N7 + '_' + N5 + 'global.sorted.bed')
     elif filetype == 'break_trimmed_sam_genome_local':
@@ -229,6 +238,8 @@ def create_filename(dir_sample, N7, N5, filetype):
         return os.path.join(main_folder, 'break_trimmed_bam_genome_local_files', N7 + '_' + N5 + '.sorted.bam')
     elif filetype == 'break_trimmed_sorted_bai_genome_local':
         return os.path.join(main_folder, 'break_trimmed_bam_genome_local_files', N7 + '_' + N5 + '.sorted.bam.bai')
+    elif filetype == 'break_trimmed_filtered_and_sorted_bam_genome_local':
+        return os.path.join(main_folder, 'break_trimmed_bam_genome_local_files', N7 + '_' + N5 + '_primary_as_mapq.sorted.bam')
     elif filetype == 'break_trimmed_genome_local_bed':
         return os.path.join(main_folder, 'break_trimmed_bam_genome_local_files', N7 + '_' + N5 + 'local.sorted.bed')
     elif filetype == 'all_bed':
@@ -327,11 +338,13 @@ def create_filename(dir_sample, N7, N5, filetype):
     elif filetype == 'results_pipeline2_local':
         return os.path.join(main_folder, 'results', N7 + '_' + N5 + '_results_pipeline2_local.xlsx')
     
-
-#my homemade function to make a fastq with only correct priming events
-#I currently have skipped making this becasue a relitivly high amount are on target due to nested and I just want results
-#this should be a similiar function to the demultiplex sorting function but simpler
-#the sequence to align is the first reads of r2
+###########################
+#
+#   my homemade function to make a fastq with only correct priming events
+#   I currently have skipped making this becasue a relitivly high amount are on target due to nested and I just want results
+#   this should be a similiar function to the demultiplex sorting function but simpler
+#   the sequence to align is the first reads of r2
+#######################
 
 def correct_priming(dir_sample, amplicon_info, primer_seq_plus_downstream):
     
@@ -1997,12 +2010,15 @@ def melt_results_lam(results_summary_with_experiments):
 
     return results_out
 
-
-#this function is for preparing LAM files made by Misha for  These 'UMIs' are not real. They are just 
-# put together to allow the uditas to work. But there is no UMI in the LAM setup these are random seqs
-
-# The adapter sequence is in read 2 : GACTATAGGGCACGCGTGG
-# both read 1 and 2 have 5nt of random at the begining NNNNN
+############################
+#
+#       this function is for preparing LAM files made by Misha for  These 'UMIs' are not real. They are just 
+#       put together to allow the uditas to work. But there is no UMI in the LAM setup these are random seqs
+#
+#       The adapter sequence is in read 2 : GACTATAGGGCACGCGTGG
+#       both read 1 and 2 have 5nt of random at the begining NNNNN
+#
+####################################
 
 def umi_joining(dir_sample, amplicon_info):
     length_of_umis_on_end = 5
@@ -2089,10 +2105,12 @@ def umi_joining(dir_sample, amplicon_info):
     print('number of unique umis', unique_umis)
 
 
-
-#this is different than my other correct priming in that it looks at the other read.
-
-######### this reads a different input file than Tn5!!!###########
+######################
+#
+#
+#       this is different than my other correct priming in that it looks at the other read.
+#
+########## this reads a different input file than Tn5!!! #####
 
 def correct_priming_lam(dir_sample, amplicon_info, primer_seq_plus_downstream):
     
@@ -2289,8 +2307,10 @@ def trim_fastq_to_break(dir_sample, amplicon_info, seq_primer_to_breaksite, lam_
 # Input: directory to be analyzed
 #        amplicon_info, slice of sample_info.csv for the sample being processed
 #        assembly, name of the assembly to be used by bowtie2. It is convenient to place it in a folder especified by
-#        the environmental variable BOWTIE2_INDEXES
-#   lam_or_tn5 needs to be 'lam' or 'tn5'
+#        the environmental variable BOWTIE2_INDEXES. Need to re-index with the targeting vector and plasmid if using
+#       lam_or_tn5: needs to be 'lam' or 'tn5'
+#       keep_sam: does not delete the sam file if '1'.       
+#
 # ##########################
 
 def align_afterbreak_end_to_end_genome_global(dir_sample, amplicon_info, assembly, lam_or_tn5='tn5', ncpu=4, keep_sam=0):
@@ -2370,10 +2390,12 @@ def align_afterbreak_end_to_end_genome_global(dir_sample, amplicon_info, assembl
 # Input: directory to be analyzed
 #        amplicon_info, slice of sample_info.csv for the sample being processed
 #        assembly, name of the assembly to be used by bowtie2. It is convenient to place it in a folder especified by
-#        the environmental variable BOWTIE2_INDEXES
+#        the environmental variable BOWTIE2_INDEXES (make sure it is re-indexed with targeting vector and plasmid)
+#       keep_sam: this will not delete the sam file after alignment
+#       
 #
 # ##########################
-def align_afterbreak_end_to_end_genome_globalreaks_genome_local(dir_sample, unmapped_amplicons, amplicon_info, assembly, lam_or_tn5='tn5', ncpu=4, keep_sam=0):
+def align_afterbreaks_genome_local(dir_sample, unmapped_amplicons, amplicon_info, assembly, lam_or_tn5='tn5', ncpu=4, keep_sam=0):
 
     # We first check if the experiment had any guides
     N7 = amplicon_info['index_I1']
@@ -2441,9 +2463,26 @@ def align_afterbreak_end_to_end_genome_globalreaks_genome_local(dir_sample, unma
     os.chdir(initial_dir)
 
 
+
+
+#############################
+#
 # This quantifies the output of the local or global alignments. It searches for where in the genome
 # they alinged and then tallies this, and for the umis
 # choosing lam_or_tn5 just changes the output file to contain collaped UMIs or not (LAM doesn't have these)
+#
+#  input: 
+# dir_sample: directory of the file.
+# global_or_local: choosing the bam file made by the global or local alignment
+# tn5_or_lam is just for organiznig het output plot. Lam has no UMI collapsing so the table just removes the umi info
+# targeting_vector_name: this need to be the exact string that was put into the indexed bowtie2 so that it can be found in the alignment file
+# window size: this is the region around the cut site imported from the csv file. This region is considered the "target region" 
+#                and everything else is the translocation
+# min_MAPq is the minimum map quality in the alignment files
+# min_AS this is the minimal alignment socre. Not sure what are good numbers but Uditas said -180 for global alignments
+#
+#
+############################
 
 
 def quantify_pipeline2_alignments(dir_sample, global_or_local, amplicon_info, lam_or_tn5 = 'tn5',
@@ -2481,24 +2520,30 @@ def quantify_pipeline2_alignments(dir_sample, global_or_local, amplicon_info, la
 
 
     #prepare counts for measing
+    all_reads_unfiltered = []
+    all_reads_unfiltered_umis = []
     alignments_target_site_names = []
     alignments_target_site_umis = []
     alignments_targeting_vector_names = []
     alignments_targeting_vector_umis = []
     alignments_on_other_chromosome_regions_names = []
     alignments_on_other_chromosome_regions_umis = []
-
+    alignments_on_other_chromosome_regions_names = []
+    
+    
     #open up the bam file
     bam_alignment_file = pysam.AlignmentFile(bam_file, 'rb')
     bam_in = bam_alignment_file.fetch()
 
     #test each read
     for read in bam_in:
+        all_reads_unfiltered.append(read.query_name)
+        all_reads_unfiltered_umis.append(UMI_dict[read.query_name][0])
         if read.has_tag('AS'):
             read_AS = read.get_tag('AS')
         #check read quality is good
         if read.mapping_quality >= min_MAPQ and read_AS >= min_AS and  not read.is_secondary:
-
+            # should use this as a filtered bam file for plotting
             # count the alignments to the vector
             if read.reference_name == targeting_vector_name:           
                 alignments_targeting_vector_names.append(read.query_name)
@@ -2522,6 +2567,8 @@ def quantify_pipeline2_alignments(dir_sample, global_or_local, amplicon_info, la
 
 
     ##### calculating the results  ####
+    count_all = len(all_reads_unfiltered)
+    count_all_umis = len(set(all_reads_unfiltered_umis))
     # targeting site        
     count_target = len(alignments_target_site_names)
     count_target_umis = len(set(alignments_target_site_umis))
@@ -2547,7 +2594,8 @@ def quantify_pipeline2_alignments(dir_sample, global_or_local, amplicon_info, la
     per_target_site_collapsed = count_target_umis/total_align_collapsed*100
     per_target_vector_collapsed = count_target_vector_umis/total_align_collapsed*100
     per_translocations_collapsed = count_translocations_umis/total_align_collapsed*100
-    
+
+        
 
     results_df = pd.DataFrame({'alignments_target_site_all': [count_target],
                                'collapsed_alignments_target_site': [count_target_umis],
@@ -2555,39 +2603,122 @@ def quantify_pipeline2_alignments(dir_sample, global_or_local, amplicon_info, la
                                'collapsed_alignments_target_vector': [count_target_vector_umis],
                                'alignments_translocations_all': [count_translocations],
                                'collapsed_alignments_translocations': [count_translocations_umis],
-                               'total aligned reads': [total_align],
-                               'total collpased reads': [total_align_collapsed],
+                               'total aligned reads filtered': [total_align],
+                               'total collpased reads filtered': [total_align_collapsed],
                                '%_target_site_reads': [per_target_site],
                                '%_target_vector_reads': [per_target_vector],
                                '%_translocations': [per_translocations],
                                '%_target_site_reads_collapsed': [per_target_site_collapsed],
                                '%_target_vector_reads_collapsed': [per_target_vector_collapsed],
                                '%_translocations_collapsed': [per_translocations_collapsed],
+                               'all_reads_unfiltered': [count_all],
+                               'all_reads_unfiltered_collapsed': [count_all_umis]
                                }, 
-                                  columns = ['alignments_target_site_all',
+                                  columns = ['%_target_site_reads',
+                                             '%_target_vector_reads',
+                                             '%_translocations', 
+                                             '%_target_site_reads_collapsed', 
+                                             '%_target_vector_reads_collapsed', 
+                                             '%_translocations_collapsed',
+                                             'alignments_target_site_all',
                                              'alignments_target_vector_all', 
                                              'alignments_translocations_all',
                                              'collapsed_alignments_target_site',
                                              'collapsed_alignments_target_vector',
                                              'collapsed_alignments_translocations', 
-                                             'total aligned reads', 
-                                             'total collpased reads',
-                                             '%_target_site_reads',
-                                             '%_target_vector_reads',
-                                             '%_translocations', 
-                                             '%_target_site_reads_collapsed', 
-                                             '%_target_vector_reads_collapsed', 
-                                             '%_translocations_collapsed'])
+                                             'total aligned reads filtered', 
+                                             'total collpased reads filtered',
+                                             'all_reads_unfiltered',
+                                             'all_reads_unfiltered_collapsed'])
     
     if lam_or_tn5 == 'lam':
-        results_df = results_df[['alignments_target_site_all',
+        results_df = results_df[['%_target_site_reads',
+                                             '%_target_vector_reads',
+                                             '%_translocations',
+                                             'alignments_target_site_all',
                                              'alignments_target_vector_all', 
                                              'alignments_translocations_all',
-                                             'total aligned reads',
-                                             '%_target_site_reads',
-                                             '%_target_vector_reads',
-                                             '%_translocations']]
+                                             'total aligned reads filtered',
+                                             'all_reads_unfiltered']]
     
     results_df.to_excel(results_file)
 
+    return results_df
+
+
+#############################
+#
+#  This is a function to sort the alignemnt files. It takes primary alignments with good AS scores and MapQ and makes a bam file
+#
+#  input: directory of the file.
+# global_or_local is if it is sorting o ut the bam file made by the global or local alignment
+# tn5_or_lam is just for organiznig het output plot. Lam has no UMI collapsing so the table just removes the umi info
+
+# min_MAPq is the minimum map quality in the alignment files
+# min_AS this is the minimal alignment socre. Not sure what are good numbers but Uditas said -180 for global alignments
+#
+############################
+
+def final_trimmed_bam_filtered_mapq_AS_primary(dir_sample, global_or_local, amplicon_info, tn5_or_lam = 'tn5',
+                                               min_MAPQ = 25, min_AS=-180):
+    #function beginning
+    # define samples
+    N7 = amplicon_info['index_I1']
+    N5 = amplicon_info['index_I2']
+
+    file_UMI = create_filename(dir_sample, N7, N5, 'umifastqgz')
+    UMI_dict = create_barcode_dict(file_UMI)
+
+    
+    if global_or_local == 'global':
+        bam_file = create_filename(dir_sample, N7, N5, 'break_trimmed_sorted_bam_genome_global')
+        final_trimmed_bam_filtered_file = create_filename(dir_sample, N7, N5, 'break_trimmed_filtered_and_sorted_genome_global')
+    elif global_or_local == 'local':
+        bam_file = create_filename(dir_sample, N7, N5, 'break_trimmed_sorted_bam_genome_local')
+        final_trimmed_bam_filtered_file = create_filename(dir_sample, N7, N5, 'break_trimmed_filtered_and_sorted_bam_genome_local')
+    
+    all_reads_unfiltered = []
+    all_reads_unfiltered_umis = []
+    all_reads_pass_filter = []
+    all_reads_pass_filter_umis = []
+    
+    bam_alignment_file = pysam.AlignmentFile(bam_file, 'rb')
+    bam_in = bam_alignment_file.fetch()
+    
+    filtered_reads = pysam.AlignmentFile(final_trimmed_bam_filtered_file, "wb", template=bam_alignment_file)
+    
+    #test each read
+    for read in bam_in:
+        all_reads_unfiltered.append(read.query_name)
+        all_reads_unfiltered_umis.append(UMI_dict[read.query_name][0])
+        if read.has_tag('AS'):
+            read_AS = read.get_tag('AS')
+        #check read quality is good
+        if read.mapping_quality >= min_MAPQ and read_AS >= min_AS and  not read.is_secondary:
+            all_reads_pass_filter.append(read.query_name)
+            all_reads_pass_filter_umis.append(UMI_dict[read.query_name][0])
+            filtered_reads.write(read)
+    filtered_reads.close()
+    bam_alignment_file.close()
+
+
+    count_unfiltered = len(all_reads_unfiltered)
+    count_unfiltered_umis = len(set(all_reads_unfiltered_umis))
+
+    count_filtered = len(all_reads_pass_filter)
+    count_filtered_umis = len(set(all_reads_pass_filter_umis))
+    
+    results_df = pd.DataFrame({'all_alignments_count': [count_unfiltered],
+                               'all_alignments_count_collapsed': [count_unfiltered_umis],
+                               'filtered_alignments_count': [count_filtered],
+                               'filtered_alignments_count_collapsed': [count_filtered_umis],
+                              },
+                                  columns = ['all_alignments_count',
+                                             'all_alignments_count_collapsed', 
+                                             'filtered_alignments_count',
+                                             'filtered_alignments_count_collapsed'])
+    
+    if tn5_or_lam == 'lam':
+        results_df = results_df[['all_alignments_count','filtered_alignments_count']]
+    
     return results_df
