@@ -24,9 +24,9 @@
 
 #################       Tn5  ###################
 # input
-folder.with.sorted.bed <- "C:/Users/User/Documents/Lab/LongBCRs/bioinformatics/eric_faa/input"
+folder.with.sorted.bed <- "/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/P_Eric4_Tn5/bed_files"
 # output
-setwd("C:/Users/User/Documents/Lab/LongBCRs/bioinformatics/eric_faa")
+setwd("/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/P_Eric4_Tn5/bed_plots")
 
 
 
@@ -50,6 +50,8 @@ if (libs.installed == length(libs)) {
 rm(libs, libs.installed)
 
 # Functions ---------------------------------------------------------------
+
+### what does this do
 search_files <- function(folder = NA, file.or.pattern, log.file = report.file){
   if(folder == "" | is.na(folder)){
     write(paste("No folder specified for", file.or.pattern, "file(s), looking for the files in the working directory.", sep = " "),
@@ -101,6 +103,7 @@ lookup <- function(input, table){
   return(table$output[which(str_detect(input, table$input))])
 }
 
+### what does this do
 calculate_offsets <- function(df, method = 'middle'){
   if (method == 'middle'){
     bins_center <- bins + binwidth/2
@@ -160,26 +163,38 @@ count.overlap <- function(subject.starts, subject.ends, query.start, query.end){
 }
 
 # File search -------------------------------------------------------------
-chrlength.file <- search_files(folder = getwd(), file.or.pattern = "chrlength")
+#chrlength.file <- search_files(folder = getwd(), file.or.pattern = "chrlength")
 
-# chrlength.file <- read.table("/home/edanner/workspace/uditas/Pipeline2Plotting/GRCh38_chrlength.txt",
-#                              header = TRUE, stringsAsFactors = FALSE)
-## The program uses just one file with chromosome length, it chooses the most recent one
-if(length(chrlength.file) > 1){
-  file.info.table <- bind_cols(data.frame(filename = chrlength.file), file.info(chrlength.file))
-  file.info.table <- arrange(file.info.table, desc(atime))
-  chrlength.file <- file.info.table$filename[1]
-  warning(paste("More than one file with chromosome length found, using the most recent one, ", chrlength.file, ".", sep = ""))
-  write(paste("More than one file with chromosome length found, using the most recent one, ", chrlength.file, ".\n", sep = ""),
-        file = report.file, append = TRUE)
-  rm(file.info.table)
-}else{
-  write(paste("Chromosome length file used: ", chrlength.file, ".\n", sep = ""),
-        file = report.file, append = TRUE)
+chrlength.file <- read.table("/home/edanner/workspace/uditas/Pipeline2Plotting/GRCh38_chrlength.txt",
+                             header = TRUE, stringsAsFactors = FALSE)
+# ERIC PC or LEBMIH ASUS
+if (Sys.info()["nodename"] != "LEBMIHASUS") {
+  print("Hi, sexy stranger!")
+  offtargets <- read.table("/media/edanner/NewUbuntuSpace/Workspace/LinearAmp/Sequence2_191129_MN00157_0047_A000H2GWGF/offtargets_hg38-unknownLoc.txt",
+                           header = TRUE, stringsAsFactors = FALSE)
+} else {
+  print("Hi, misha!")
+  offtargets <- read.table("C:/Users/User/Documents/Lab/LongBCRs/bioinformatics/eric_faa/offtargets_hg38-unknownLoc.txt",
+                           header = TRUE, stringsAsFactors = FALSE)
+  setwd("C:/Users/User/Documents/Lab/LongBCRs/bioinformatics")
 }
 
-centromeres <- read.table("input/hg38_centromeres.txt",
-                              header = TRUE, stringsAsFactors = FALSE)
+
+## The program uses just one file with chromosome length, it chooses the most recent one
+# if(length(chrlength.file) > 1){
+#   file.info.table <- bind_cols(data.frame(filename = chrlength.file), file.info(chrlength.file))
+#   file.info.table <- arrange(file.info.table, desc(atime))
+#   chrlength.file <- file.info.table$filename[1]
+#   warning(paste("More than one file with chromosome length found, using the most recent one, ", chrlength.file, ".", sep = ""))
+#   write(paste("More than one file with chromosome length found, using the most recent one, ", chrlength.file, ".\n", sep = ""),
+#         file = report.file, append = TRUE)
+#   rm(file.info.table)
+# }else{
+#   write(paste("Chromosome length file used: ", chrlength.file, ".\n", sep = ""),
+#         file = report.file, append = TRUE)
+# }
+
+centromeres <- read.table("/home/edanner/workspace/uditas/Pipeline2Plotting/hg38_centromeres.txt", header = TRUE, stringsAsFactors = FALSE)
 ## The program uses just one centromere file, it chooses the most recent one
 # if(length(centromere.file) > 1){
 #   file.info.table <- bind_cols(data.frame(filename = centromere.file), file.info(centromere.file))
@@ -195,6 +210,8 @@ centromeres <- read.table("input/hg38_centromeres.txt",
 #         file = report.file, append = TRUE)
 # }
 
+# loading and concationating all the bed files for processing
+# we then remove the extra comments from the bowtie2 as they were filtered in python for primary reads, high quality
 bed.files <- search_files(folder = folder.with.sorted.bed, file.or.pattern = ".sorted.bed")
 bed <- data.frame()
 for (i in bed.files) {
@@ -216,8 +233,41 @@ mc <- bed.files %>% filter(chrom == "pE038_MC")
 bed.files <- bed.files %>% filter(!str_detect(chrom, "_") & chrom != "pE038_MC")
 # Quality based filtering
 threshold <- 25
+bed.fileslowQ <- bed.files %>% dplyr::filter(quality < threshold)
 bed.files <- bed.files %>% dplyr::filter(quality >= threshold)
+
+# -------------------- Counting the overlap of the Cas9-offtarget sites with the reads (Cas9 driven events)  -------------------
+
+# this measures for all the off targets in our table
+offtarget.overlap <- c()
+for(i in seq(nrow(offtargets))){
+  bed.files.tmp <- bed.files %>% dplyr::filter(chrom == offtargets$chrom[i])
+  bed.files.tmp <- bed.files.tmp %>%
+    mutate(center = (start + end)/2,
+           dist.to.off = center - (offtargets$start[i] + offtargets$end[i])/2,
+           dist.to.off = abs(dist.to.off))
+  overlaps <- sum(bed.files.tmp$dist.to.off <= 500)
+  # num <- sum((bed.files.tmp$start >= offtargets$start[i] & bed.files.tmp$end <= offtargets$end[i])|
+  #              (bed.files.tmp$start <= offtargets$start[i] & bed.files.tmp$end >= offtargets$end[i])|
+  #              (bed.files.tmp$start >= offtargets$start[i] & bed.files.tmp$start <= offtargets$end[i])|
+  #              (bed.files.tmp$end >= offtargets$start[i] & bed.files.tmp$end <= offtargets$end[i]))
+  offtarget.overlap <- c(offtarget.overlap, overlaps)
+}
+offtargets$overlap <- offtarget.overlap
+offtargets <- offtargets %>%
+  arrange(desc(overlap))
+# need to check off target table manually by opening dataframe and scroll to right and look at "overlap" column count
+
+# Filtering of the off-target table to show the top_n on the plot later
+top_n <- 10
+offtargets <- offtargets %>%
+  arrange(desc(mitOfftargetScore)) %>%
+  dplyr::slice(1:top_n)
+
+
+
 # Library of values for check step ----------------------------------------
+
 ## All names for the columns of interest should be listed here
 chromosome.columns <- c("Chromosome", "chromosome", "Chrom", "chrom", "chr", "Chr")
 length.columns <- c("Length.bp", "length.bp", "Length", "length", "Len.bp", "len.bp", "Len", "len")
@@ -232,7 +282,10 @@ chrom.names.lookuptable <- data.frame(input = c(paste(as.character(c(1:22)),"$",
 chrom.names.lookuptable$input <- paste("^", chrom.names.lookuptable$input, "|^[a-zA-Z]{3,10}",
                                        chrom.names.lookuptable$input, sep = "")
 
-# Data import and check ---------------------------------------------------
+
+
+#---------------------------------- Data import and check ---------------------------------------------------
+
 write("\n#### DATA CHECK ####\n", file = report.file, append = TRUE)
 # Detection of the assembly in the chromosome length file
 # chrlength.file.last.piece <- str_split(chrlength.file, "/") %>% unlist()
@@ -271,7 +324,7 @@ write("\n#### DATA CHECK ####\n", file = report.file, append = TRUE)
 # rm(chrlength.file.assembly, centromere.file.assembly)
 
 # Reading the chromosome length data
-chrlen <- read.table(file = as.character(chrlength.file), sep = '\t', header = TRUE, stringsAsFactors = FALSE)
+chrlen <- chrlength.file
 # Checking the presence of chromosome and length columns
 if(!any(colnames(chrlen) %in% chromosome.columns)){
   stop("No chromosome column found in chromosome length file!")
@@ -316,7 +369,9 @@ if(nrow(centromeres) > 24){
         file = report.file, append = TRUE)
 }
 
-# Data preprocessing ------------------------------------------------------
+
+
+#--------------------------------- Data preprocessing ------------------------------------------------------
 ## Column names to standard
 chrlen$chrom <- chrlen[,which(colnames(chrlen) %in% chromosome.columns)]
 chrlen$length <- chrlen[,which(colnames(chrlen) %in% length.columns)]
@@ -375,7 +430,9 @@ rm(centromeres)
 # For sake of plotting in downstream code:
 chrlen$relative.length <- chrlen$length/max(chrlen$length)
 
-# Plot parameters specifying ----------------------------------------------
+
+
+# -----------------------------Plot parameters specifying ----------------------------------------------
 ## Input Parameters
 plot.height <- 1500
 plot.width <- 1000
@@ -401,7 +458,7 @@ N <- nrow(chrlen)
 spacing <- inner.height/(N-1)
 chrlen$element.i <- seq(N)
 
-# Plotting coordinates calculation ----------------------------------------
+#--------------------------------- Plotting coordinates calculation ----------------------------------------
 ## Chromosomes coordinates
 chrlen$AX <- x.margin
 chrlen$AY <- y.inner - spacing*(chrlen$element.i - 1) - thick/2
@@ -423,55 +480,12 @@ chrlen$length.mbp <- as.character(chrlen$length.mbp)
 chrlen$length.mbp <- paste(chrlen$length.mbp, 'Mbp')
 color_of_lines <- 'black'
 
-# Read mapping import -----------------------------------------------------
-#jsut calling it now lam table
+#---------------------------------- Read mapping import -----------------------------------------------------
+#jsut calling it now lam table (this mapping import was done above )
 lam.table <- bed.files
-# lam.table <- read.table(file = paste(folder.with.sorted.bed, "/", bed.files[1], sep = ""),
-#                         sep = '\t', header = FALSE, stringsAsFactors = FALSE)
-#lam.table$sample <- unlist(str_split(bed.files[1], ".sorted.bed"))[1]
-# if(length(bed.files)>1){
-#   for(i in seq(2,length(bed.files))){
-#     lam.table.temp <- read.table(file = paste(folder.with.sorted.bed, "/", i, sep = ""),
-#                                  sep = '\t', header = FALSE, stringsAsFactors = FALSE)
-#     lam.table.temp$sample <- unlist(str_split(i, ".sorted.bed"))[1]
-#     lam.table <- bind_rows(lam.table, lam.table.temp)
-#   }
-#   rm(i)
-# }
 
-# Filtering out non-used columns and standartization of the rest of the columns
-# lam.table %>% select(c("V1", "V2", "V3", "V4", "sample")) -> lam.table
 
-#colnames(lam.table) <- c("chrom", "start", "end", "read.id", "sample")
-# Chromosome mappings can contain undefined chromosome scaffolds, filtering them out
-# if(any(str_detect(unique(lam.table$chrom), "_"))){
-#   warning("Mappings contain the undefined chromosome scaffolds alignments, filtering them out.")
-#   write("Mappings contain the undefined chromosome scaffolds alignments, filtering them out.",
-#         file = report.file, append = TRUE)
-#   n.observations.before <- nrow(lam.table)
-#   lam.table %>% filter(!str_detect(chrom, "_")) -> lam.table
-#   n.observations.after <- nrow(lam.table)
-#   n.obs.filtered <- n.observations.before - n.observations.after
-#   the.message <- paste(n.obs.filtered, " reads (", round(n.obs.filtered*100/n.observations.before,1)," %)",
-#                    " were filtered out on this step (out of ",
-#                    n.observations.before, " reads, ", n.observations.after, " reads left).", sep = "")
-#   message(the.message)
-#   write(the.message, file = report.file, append = TRUE)
-#   rm(the.message)
-#   lam.table %>% filter(!str_detect(chrom, "chrM")) -> lam.table
-#   n.observations.after.chrM <- nrow(lam.table)
-#   the.message <- paste("Number of reads filtered out due to mapping to the chrM: ",
-#                        n.observations.after - n.observations.after.chrM, " (",
-#                        round((n.observations.after - n.observations.after.chrM)*100/n.observations.after, 1),
-#                        " %).", sep = "")
-#   message(the.message)
-#   write(the.message, file = report.file, append = TRUE)
-#   rm(the.message)
-#   rm(n.observations.before, n.observations.after, n.observations.after.chrM, n.obs.filtered)
-# }
-#
-
-# Mappings plotting -------------------------------------------------------
+# -----------------------Mappings plotting -------------------------------------------------------
 lam.table <- left_join(lam.table, select(chrlen, chrom, AY, BY), by = 'chrom')
 max_chr_len <- max(chrlen$length)
 lam.table %>% mutate(rel.start = start/max_chr_len) %>%
@@ -486,6 +500,25 @@ if (bins[length(bins)] != inner.width + x.margin){
   bins <- c(bins, inner.width + x.margin)
 }
 lam.table$binX <- .bincode(lam.table$AX, bins)
+
+# Calculating the coordinates for the offtargets
+offtargets <- offtargets %>%
+  filter(chrom != "chrM") %>%
+  mutate(center = (start+end)/2,
+    AX = x.margin + inner.width*center/max(chrlen$length),
+         BX = AX-2.5, CX = AX+2.5) %>%                          # change the numbers here to adjust the widht of the triangles
+  left_join(select(chrlen, chrom, AY), by = c("chrom")) %>%
+  mutate(AY = AY, BY = AY - 15, CY = BY)                  # Change this number to adjust the height of the triangles
+offtargets <- offtargets %>%
+  unite(A, AX,AY, sep = ";") %>%
+  unite(B, BX,BY, sep = ";") %>%
+  unite(C, CX,CY, sep = ";")
+offtargets <- offtargets %>%
+  gather(key = "dot", value = "coord", c("A", "B", "C"))
+offtargets <- offtargets %>%
+  separate(coord, c("dotX", "dotY"), sep = ";", remove = TRUE) %>%
+  mutate(dotX = as.numeric(dotX),
+         dotY = as.numeric(dotY))
 
 #lam.table$sample <- "bpA"
 #lam.table <- lam.table %>% filter(read.dir == "rev")
@@ -515,9 +548,18 @@ for(i in unique(lam.table$filename)){
     geom_point(aes(x = center.X, y = center.Y), size = 2, shape = 21, fill = 'deeppink2')+
     geom_text(aes(x = AX-35, y = AY+3, label = chrom), colour = "black")+
     geom_text(aes(x = BX + 50, y = AY+3, label = length.mbp), size = 3, colour = "black")+
-    geom_segment(data = lam %>% filter(reads.count > 1), aes(x = AX-1, y = AY+2.5, xend = AX-1, yend = BY+2.5),
+    # the read.counts here is the minimum bin size!!!!
+    geom_segment(data = lam %>% filter(reads.count > 4), aes(x = AX-1, y = AY+2.5, xend = AX-1, yend = BY+2.5),
                  colour = "blue", size = 1)+
+    # geom_rect(data = offtargets,
+    #           aes(xmin = AX, ymin = AY, xmax = BX, ymax = BY),
+    #           fill = "red")+
+    
+    #this is the color of the triangles for off target locations
+    geom_polygon(data = offtargets,
+                 aes(x = dotX, y = dotY, group = locusDesc), fill = 'red')+
     theme_void()
+
 
   ggsave(paste('htgts_', i,
                format(Sys.time(), "%d%m%y_%H%M"),
@@ -560,6 +602,3 @@ for (i in unique(mc$filename)) {
          device = "pdf")
   rm(mc.tmp, covdf)
 }
-
-
-
