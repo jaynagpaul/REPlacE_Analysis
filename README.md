@@ -1,16 +1,16 @@
-UDiTaS v1.0
-===========
+##########    "Uditas- Replace"    #########
 
-Enviornmental Variable Setting:
-For global alignments
-export BOWTIE2_INDEXES=/media/edanner/NewUbuntuSpace/Workspace/Ref_Genomes
-for looking up reference sequences by location
-export GENOMES_2BIT=/media/edanner/NewUbuntuSpace/Workspace/Ref_Genomes
+Built by forking UDiTaS v1.0, and then altering the pipeline.
+    	
 
-check:  > echo $BOWTIE2_INDEXES
-	> ECHO $GENOMES_2BIT
+30% are original Uditas functions, 30% are modified uditas functions, 40% are new functions. The pipeline handles samples prepared by LAM-HGTGS or Tn5/Uditas bench preparation.
+contact Eric Danner for questions: edanner.lab@gmail.com
 
-Overview
+All new and used functions are in uditas_replace_helpers.py. Work is done the jupyter notebooks and in a R script.
+
+
+
+Overview 
 --------
 
 UDiTaS(TM) stands for UniDirectional Targeted Sequencing, a novel sequencing method useful for measuring small indels as well as
@@ -18,8 +18,17 @@ structural rearrangements, like translocations, in a single reaction.
 
 See details of the method in Giannoukos et al. BMC Genomics (2018) 19:212, https://bmcgenomics.biomedcentral.com/articles/10.1186/s12864-018-4561-9
 
+'Pipeline 1' is based on the original Uditas pipeline. This generates predicted strutural rearangments and aligns to these expected outcomes. Then an indel analysis is performed at the breaks.
 
-Systems Requirements
+'Pipeline 2' takes reads which are correctly primed and trims the reads up to the expected cas9 break site. Then it aligns the reads to the entire genome to look for genome wide translocations into the break site or for off target integration of our vectors.
+
+
+For Uditas-Replace use conda enviornment: UditasManualInstal.yml
+
+#########################
+For origianl Uditas software use below.
+
+Systems Requirements 
 --------------------
 
 UDiTaS has been tested in python 2.7.13 and requires the python packages and tools listed in the file uditas_env.yml

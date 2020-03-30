@@ -180,7 +180,7 @@ if (Sys.info()["nodename"] != "LEBMIHASUS") {
 }
 
 
-## The program uses just one file with chromosome length, it chooses the most recent one
+  ## The program uses just one file with chromosome length, it chooses the most recent one
 # if(length(chrlength.file) > 1){
 #   file.info.table <- bind_cols(data.frame(filename = chrlength.file), file.info(chrlength.file))
 #   file.info.table <- arrange(file.info.table, desc(atime))
@@ -530,9 +530,9 @@ for(i in unique(lam.table$filename)){
 
   lam.table.temp %>% group_by(chrom, binX) %>% summarise(AY = nth(AY, 1), reads.count = n()) -> lam
 
-  lam$reads.count.log <- log(lam$reads.count + 1, 7)
+  lam$reads.count.log <- log(lam$reads.count + 1, 10)
   lam$AX <- lam$binX * binwidth
-  barheight <- 5
+  barheight <- 6
   lam$BY <- lam$AY + lam$reads.count.log * barheight
   #lam$BY <- lam$AY + lam$reads.count/2000
   lam$BX <- lam$AX + binwidth
@@ -542,9 +542,6 @@ for(i in unique(lam.table$filename)){
   lamplot <- ggplot(data = chrlen)+
     coord_cartesian(xlim = c(0, plot.width), ylim = c(0, plot.height))+
     geom_segment(aes(x = AX, y = AY, xend = BX, yend = BY), alpha = 0.2, color = "black", size = 1)+
-    geom_segment(data = lam.table.temp,
-                 aes(x = AX, y = AY, xend = BX, yend = BY),
-                 alpha = 0.25, size = 1, color = 'red')+
     geom_point(aes(x = center.X, y = center.Y), size = 2, shape = 21, fill = 'deeppink2')+
     geom_text(aes(x = AX-35, y = AY+3, label = chrom), colour = "black")+
     geom_text(aes(x = BX + 50, y = AY+3, label = length.mbp), size = 3, colour = "black")+
@@ -576,7 +573,7 @@ lam.table %>% filter(filename == unique(lam.table$filename)[2] & quality >= 25) 
 # Plotting the minicircle mappings ----------------------------------------
 # Specify the minicircle length here
 mc.length <- 1232
-# Binning the minicircle
+  # Binning the minicircle
 binwidth <- 5 # a width of the single bin in bp
 bins <- seq(0, mc.length, binwidth)
 if (bins[length(bins)] != mc.length){
@@ -602,3 +599,4 @@ for (i in unique(mc$filename)) {
          device = "pdf")
   rm(mc.tmp, covdf)
 }
+  

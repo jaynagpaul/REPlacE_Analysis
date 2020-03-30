@@ -1,4 +1,4 @@
-name: uditas_polb
+name: Uditas_Replace
 channels:
   - conda-forge
   - bioconda
