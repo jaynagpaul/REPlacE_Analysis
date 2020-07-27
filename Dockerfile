@@ -31,7 +31,7 @@ RUN conda env create -f /REPlacE_Analysis/uditas_env.yml
 # WORKDIR /
 
 
-# Activate conda environment
+# Activate conda environment workaround
 SHELL ["/bin/bash", "-c"]
 RUN echo "source activate uditas_env" > ~/.bashrc
 ENV PATH /usr/local/envs/uditas_env/bin/:$PATH
