@@ -294,7 +294,14 @@ def demultiplex(dir_sample):
     i1_dict = dict(zip(barcode_i1_list, index_i1_list))
     index_i2_list = list(experiments['index_I2'])
     barcode_i2_list = list(experiments['barcode_I2'])
-    i2_dict = dict(zip(barcode_i2_list, index_i2_list))
+    
+    
+    i2_dict = {}
+    for i in range(len(barcode_i2_list)):
+        rev = reverse_complement(barcode_i2_list[i])
+        barcode_i2_list.append(rev)
+        i2_dict[rev] = index_i2_list[i]
+        i2_dict[barcode_i2_list[i]] = index_i2_list[i]
 
     index_i1_set = set(index_i1_list)
 
@@ -390,11 +397,11 @@ def demultiplex(dir_sample):
             #       We mask with N any bases with scores below or equal to , (11, default in mask)
             seq_i1 = mask(seq_i1, qual_i1)
 
-            seq_i2 = mask(seq_i2_plus_umi[:barcode_i2_length], qual_i2_plus_umi[:barcode_i2_length])
+            seq_i2 = mask(seq_i2_plus_umi[-barcode_i2_length:], qual_i2_plus_umi[-barcode_i2_length:])
 
-            umi_qual = qual_i2_plus_umi[barcode_i2_length:]
+            umi_qual = qual_i2_plus_umi[:-barcode_i2_length]
 
-            umi = mask(seq_i2_plus_umi[barcode_i2_length:], umi_qual)
+            umi = mask(seq_i2_plus_umi[:-barcode_i2_length], umi_qual)
 
             # change to 1 for reads with perfect indices or match after correction
             is_good_index = 0
